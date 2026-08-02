@@ -1,0 +1,215 @@
+import http from 'node:http'
+import fs from 'node:fs/promises'
+import { watch } from 'node:fs'
+import path from 'node:path'
+
+const MIME_TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.woff2': 'font/woff2'
+}
+
+export class DevServer {
+    constructor(options = {}) {
+        this.rootDir = options.rootDir || process.cwd()
+        this.staticDir = options.staticDir || path.join(this.rootDir, '.raft')
+        this.desiredPort = options.port || 4455
+        this.bindHost = options.host ? '0.0.0.0' : '127.0.0.1'
+        this.server = null
+        this.activePort = this.desiredPort
+        this.watcher = null
+        this.builder = null
+        this.rebuildTimer = null
+    }
+
+    async handleRequest(req, res) {
+        const startTime = Date.now()
+        let reqUrl = req.url.split('?')[0]
+        const safePath = path.normalize(reqUrl).replace(/^(\.\.[\/\\])+/, '')
+        
+        let candidatePaths = []
+
+        if (safePath === '/' || safePath === '\\') {
+            candidatePaths.push(path.join(this.staticDir, 'index.html'))
+        } else if (!path.extname(safePath)) {
+            candidatePaths.push(path.join(this.staticDir, safePath, 'index.html'))
+            candidatePaths.push(path.join(this.staticDir, `${safePath}.html`))
+            candidatePaths.push(path.join(this.staticDir, safePath))
+        } else {
+            candidatePaths.push(path.join(this.staticDir, safePath))
+        }
+
+        let resolvedPath = null
+
+        // /404 is a system error template, not a routable page — block direct access
+        const is404Route = safePath === '/404' || safePath === '/404/'
+        if (!is404Route) {
+            for (const cand of candidatePaths) {
+                try {
+                    const stat = await fs.stat(cand)
+                    if (stat.isFile()) {
+                        resolvedPath = cand
+                        break
+                    }
+                } catch (_) {}
+            }
+        }
+
+        const logRequest = (statusCode) => {
+            const duration = Date.now() - startTime
+            const timeStr = `${duration}ms`
+            const statusColor = statusCode >= 404 ? '404' : `${statusCode}`
+            console.log(`  ${req.method} ${reqUrl} ${statusColor} in ${timeStr}`)
+        }
+
+        if (!resolvedPath) {
+            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' })
+            
+            // Check for custom 404 page: .raft/404.html or .raft/404/index.html
+            const custom404Candidates = [
+                path.join(this.staticDir, '404.html'),
+                path.join(this.staticDir, '404', 'index.html')
+            ]
+
+            for (const cand404 of custom404Candidates) {
+                try {
+                    const content404 = await fs.readFile(cand404, 'utf-8')
+                    res.end(content404)
+                    return logRequest(404)
+                } catch (_) {}
+            }
+
+            res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 | Page Not Found</title>
+    <style>
+        body { background: #07080b; color: #f1f3f9; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+        .box { background: #0e1017; border: 1px solid rgba(255,255,255,0.1); padding: 3rem; border-radius: 16px; max-width: 460px; width: 90%; }
+        h1 { font-size: 3.5rem; margin: 0 0 0.5rem; color: #e5c158; }
+        h2 { font-size: 1.5rem; margin-bottom: 1rem; }
+        p { color: #8b92a5; margin-bottom: 2rem; font-size: 0.95rem; line-height: 1.5; }
+        code { background: rgba(255,255,255,0.08); padding: 0.2rem 0.5rem; border-radius: 4px; color: #f1f3f9; }
+        a { display: inline-block; background: #e5c158; color: #000; padding: 0.75rem 1.75rem; border-radius: 8px; font-weight: 700; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>404</h1>
+        <h2>Page Not Found</h2>
+        <p>The requested route <code>${reqUrl}</code> could not be found in <code>.raft/</code> output.</p>
+        <a href="/">Return to Home</a>
+    </div>
+</body>
+</html>`)
+            return logRequest(404)
+        }
+
+        try {
+            const ext = path.extname(resolvedPath).toLowerCase()
+            const mimeType = MIME_TYPES[ext] || 'application/octet-stream'
+            const content = await fs.readFile(resolvedPath)
+
+            res.writeHead(200, {
+                'Content-Type': mimeType,
+                'Cache-Control': 'no-store, must-revalidate'
+            })
+            res.end(content)
+            logRequest(200)
+        } catch (err) {
+            res.writeHead(500)
+            res.end('Internal Server Error')
+            logRequest(500)
+        }
+    }
+
+    startWatcher(builder) {
+        if (!builder || !builder.srcDir) return
+
+        try {
+            this.watcher = watch(builder.srcDir, { recursive: true }, (eventType, filename) => {
+                if (!filename || filename.startsWith('.') || filename.includes('.tmp')) return
+
+                // Debounce rebuilds to prevent duplicate builds on rapid edits
+                if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
+                this.rebuildTimer = setTimeout(async () => {
+                    console.log(`\n[Staticraft Watcher] File changed: src/${filename}`)
+                    try {
+                        await builder.build()
+                    } catch (err) {
+                        console.error('[Staticraft Watcher Error]', err.message)
+                    }
+                }, 100)
+            })
+        } catch (err) {
+            console.warn('[Staticraft Watcher] Recursive watch warning:', err.message)
+        }
+    }
+
+    async start(builder = null) {
+        this.builder = builder
+
+        // Trigger initial build
+        if (builder) {
+            await builder.build()
+            this.startWatcher(builder)
+        }
+
+        return new Promise((resolve, reject) => {
+            let attemptPort = this.desiredPort
+            const maxAttempts = 20
+
+            const tryListen = (port) => {
+                const server = http.createServer((req, res) => this.handleRequest(req, res))
+
+                server.once('error', (err) => {
+                    if (err.code === 'EADDRINUSE') {
+                        console.warn(`[Staticraft Dev Server] Port ${port} is in use. Trying port ${port + 1}...`)
+                        if (port - this.desiredPort < maxAttempts) {
+                            tryListen(port + 1)
+                        } else {
+                            reject(new Error(`[Staticraft Dev Server] Could not find an available port between ${this.desiredPort} and ${port}`))
+                        }
+                    } else {
+                        reject(err)
+                    }
+                })
+
+                server.once('listening', () => {
+                    this.server = server
+                    this.activePort = port
+                    const hostLabel = this.bindHost === '0.0.0.0' ? 'http://0.0.0.0' : 'http://localhost'
+                    console.log(`\n🚀 Staticraft Dev Server running at:`)
+                    console.log(`   > Local:   ${hostLabel}:${port}/`)
+                    if (this.bindHost === '0.0.0.0') {
+                        console.log(`   > Network: http://<your-ip>:${port}/`)
+                    }
+                    console.log(`   > Output:  .raft/`)
+                    console.log(`   > Watching: src/ for live changes...\n`)
+                    resolve({ port, host: this.bindHost })
+                })
+
+                server.listen(port, this.bindHost)
+            }
+
+            tryListen(attemptPort)
+        })
+    }
+
+    async stop() {
+        if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
+        if (this.watcher) this.watcher.close()
+        if (this.server) {
+            return new Promise((resolve) => this.server.close(resolve))
+        }
+    }
+}
