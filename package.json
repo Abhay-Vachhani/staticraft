@@ -1,0 +1,27 @@
+{
+    "name": "staticraft",
+    "version": "0.1.0",
+    "description": "Generate privately. Serve statically. Update continuously.",
+    "type": "module",
+    "bin": {
+        "staticraft": "./staticraft"
+    },
+    "main": "src/cli.js",
+    "scripts": {
+        "dev": "./staticraft dev",
+        "build": "./staticraft build",
+        "start": "./staticraft start"
+    },
+    "keywords": [
+        "staticraft",
+        "ssg",
+        "static-site-generator",
+        "zero-dependency",
+        "security-first"
+    ],
+    "author": "Abhay Vachhani",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
