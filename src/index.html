@@ -1,0 +1,58 @@
+{{ layout "layouts/base.html" }}
+
+<section class="hero">
+    <div>
+        <div class="hero-tag">
+            <span>Studio Collection 2026</span>
+        </div>
+        <h1>Sculptural form. Tactile audio. Instant static speed.</h1>
+        <p class="hero-sub">
+            An edition of minimal acoustic and lighting objects. Privately pre-rendered and served instantly without dynamic server overhead.
+        </p>
+        <div class="btn-group">
+            <a href="/products" class="btn-primary">
+                <span>Explore Objects</span>
+            </a>
+            <a href="/products/1" class="btn-secondary">
+                <span>View Flagship</span>
+            </a>
+        </div>
+    </div>
+    <div class="hero-visual">
+        <div class="hero-badge">Edition 01 / Limited</div>
+        <div class="hero-visual-card">
+            <span style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Featured Highlight</span>
+            <h3 style="font-size: 1.5rem; margin: 0.3rem 0;">Lumen Sculptural Lamp</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Raw ceramic pillar with ambient warm LED diffusion</p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="section-header">
+        <div class="section-title">
+            <h2>Curated Objects</h2>
+            <p>Fetched live from API and static compiled with Staticraft</p>
+        </div>
+        <a href="/products" style="color: var(--accent); font-weight: 600;">View All Collection</a>
+    </div>
+
+    <div class="grid-3">
+        {{#each products}}
+        <a href="/products/{{ id }}" class="product-card">
+            <div class="product-thumb">
+                <span class="product-tag">{{ category }}</span>
+                <img src="{{ thumbnail }}" alt="{{ title }}" style="width: 70%; height: 70%; object-fit: contain;">
+            </div>
+            <div class="product-info">
+                <h3>{{ title }}</h3>
+                <p class="product-desc">{{ description }}</p>
+                <div class="product-footer">
+                    <span class="price">${{ price }}</span>
+                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Details</span>
+                </div>
+            </div>
+        </a>
+        {{/each}}
+    </div>
+</section>

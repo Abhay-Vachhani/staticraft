@@ -1,0 +1,44 @@
+{{ layout "layouts/base.html" }}
+
+<section class="section">
+    <div class="detail-grid">
+        <div class="preview-box">
+            <img src="{{ product.thumbnail }}" alt="{{ product.title }}" style="max-width: 85%; max-height: 85%; object-fit: contain;">
+        </div>
+        <div class="detail-content">
+            <span style="color: var(--accent); font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">Category / {{ product.category }}</span>
+            <h1 style="font-size: 3.2rem; margin: 0.5rem 0;">{{ product.title }}</h1>
+            <div class="detail-price">${{ product.price }}</div>
+            <p style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 2rem;">
+                {{ product.description }}
+            </p>
+
+            <div class="specs-list">
+                <div class="spec-item">
+                    <span>Category</span>
+                    <strong>{{ product.category }}</strong>
+                </div>
+                <div class="spec-item">
+                    <span>Product ID</span>
+                    <strong>#{{ product.id }}</strong>
+                </div>
+                <div class="spec-item">
+                    <span>Rating</span>
+                    <strong>{{ product.rating }} / 5</strong>
+                </div>
+                <div class="spec-item">
+                    <span>Stock</span>
+                    <strong>{{ product.stock }} Units Available</strong>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button class="btn-primary" style="border: none; cursor: pointer; font-size: 1rem; padding: 1rem 2.5rem;">
+                    <span>Add to Bag</span>
+                    <span>| ${{ product.price }}</span>
+                </button>
+                <a href="/products" class="btn-secondary" style="font-size: 1rem; padding: 1rem 2rem;">Back to Collection</a>
+            </div>
+        </div>
+    </div>
+</section>

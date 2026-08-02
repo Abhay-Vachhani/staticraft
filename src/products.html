@@ -1,0 +1,30 @@
+{{ layout "layouts/base.html" }}
+
+<section class="section" style="margin-top: 2rem;">
+    <div style="margin-bottom: 3rem;">
+        <span style="color: var(--accent); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Catalog 2026</span>
+        <h1 style="font-size: 3rem; margin-top: 0.5rem;">All Studio Objects</h1>
+        <p style="color: var(--text-muted); max-width: 540px;">
+            Every object is pre-rendered from live REST API data into static HTML by Staticraft's background daemon.
+        </p>
+    </div>
+
+    <div class="grid-3">
+        {{#each products}}
+        <a href="/products/{{ id }}" class="product-card">
+            <div class="product-thumb">
+                <span class="product-tag">{{ category }}</span>
+                <img src="{{ thumbnail }}" alt="{{ title }}" style="width: 70%; height: 70%; object-fit: contain;">
+            </div>
+            <div class="product-info">
+                <h3>{{ title }}</h3>
+                <p class="product-desc">{{ description }}</p>
+                <div class="product-footer">
+                    <span class="price">${{ price }}</span>
+                    <span class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">View Object</span>
+                </div>
+            </div>
+        </a>
+        {{/each}}
+    </div>
+</section>
