@@ -2,6 +2,7 @@ import http from 'node:http'
 import fs from 'node:fs/promises'
 import { watch } from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -187,11 +188,17 @@ export class DevServer {
                 server.once('listening', () => {
                     this.server = server
                     this.activePort = port
-                    const hostLabel = this.bindHost === '0.0.0.0' ? 'http://0.0.0.0' : 'http://localhost'
                     console.log(`\n🚀 Staticraft Dev Server running at:`)
-                    console.log(`   > Local:   ${hostLabel}:${port}/`)
+                    console.log(`   > Local:   http://localhost:${port}/`)
                     if (this.bindHost === '0.0.0.0') {
-                        console.log(`   > Network: http://<your-ip>:${port}/`)
+                        const interfaces = os.networkInterfaces()
+                        for (const iface of Object.values(interfaces)) {
+                            for (const addr of iface) {
+                                if (addr.family === 'IPv4' && !addr.internal) {
+                                    console.log(`   > Network: http://${addr.address}:${port}/`)
+                                }
+                            }
+                        }
                     }
                     console.log(`   > Output:  .raft/`)
                     console.log(`   > Watching: src/ for live changes...\n`)
