@@ -7,6 +7,12 @@
         "staticraft": "./staticraft"
     },
     "main": "src/cli.js",
+    "files": [
+        "staticraft",
+        "src/",
+        "LICENSE",
+        "README.md"
+    ],
     "scripts": {
         "dev": "./staticraft dev",
         "build": "./staticraft build",

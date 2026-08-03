@@ -4,6 +4,7 @@ import path from 'node:path'
 import { SiteBuilder } from './worker/builder.js'
 import { DevServer } from './dev/server.js'
 import { ScheduleManager } from './worker/schedule.js'
+import { runInit } from './init.js'
 
 export const VERSION = '0.1.0'
 
@@ -28,12 +29,14 @@ export function parseCliArgs(args = process.argv.slice(2)) {
     }
 
     try {
-        const { values } = parseArgs({
+        const { values, positionals } = parseArgs({
             args: rawOptions,
             options: {
                 port: { type: 'string', short: 'p', default: '4455' },
                 host: { type: 'boolean', short: 'H', default: false },
-                help: { type: 'boolean', short: 'h', default: false }
+                help: { type: 'boolean', short: 'h', default: false },
+                yes: { type: 'boolean', short: 'y', default: false },
+                'site-url': { type: 'string', short: 'u', default: '' }
             },
             allowPositionals: true,
             strict: false
@@ -41,12 +44,15 @@ export function parseCliArgs(args = process.argv.slice(2)) {
 
         return {
             command: values.help ? 'help' : command,
+            targetDir: positionals[0] || '',
             port: parseInt(values.port, 10) || 4455,
             host: Boolean(values.host),
-            help: Boolean(values.help)
+            help: Boolean(values.help),
+            yes: Boolean(values.yes),
+            siteUrl: values['site-url'] || ''
         }
     } catch (err) {
-        return { command: 'help', port: 4455, host: false, help: true }
+        return { command: 'help', targetDir: '', port: 4455, host: false, help: true, yes: false, siteUrl: '' }
     }
 }
 
@@ -55,6 +61,11 @@ export async function runCli(args = process.argv.slice(2)) {
     const builder = new SiteBuilder()
 
     switch (options.command) {
+        case 'init':
+            showBanner()
+            await runInit(options)
+            break
+
         case 'dev':
             showBanner()
             const devServer = new DevServer({
@@ -99,6 +110,7 @@ export async function runCli(args = process.argv.slice(2)) {
             console.log(`Usage: staticraft <command> [options]
 
 Commands:
+  init [dir]        Scaffold a new Staticraft starter project interactively
   dev               Start dev server with HTTP preview (default port: 4455)
   start             Run production background worker daemon (NO HTTP server)
   build             One-shot build: compile static files to .raft/ and exit
@@ -106,6 +118,8 @@ Commands:
 Options:
   -p, --port <num>  Set custom development server port (default: 4455)
   -H, --host        Bind development server to 0.0.0.0 for LAN access
+  -y, --yes         Skip interactive prompts during init and use defaults
+  -u, --site-url    Set site URL during init (e.g. https://example.com)
   -h, --help        Display help menu
             `)
             break
