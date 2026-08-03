@@ -8,10 +8,16 @@
         <li><a href="/products">Collection</a></li>
         <li><a href="/about">About</a></li>
     </ul>
-    <div class="nav-actions">
-        <a href="/products" class="cart-pill">
-            <span>Bag</span>
-            <span class="cart-count">2</span>
-        </a>
-    </div>
 </nav>
+<script>
+    (function () {
+        const path = window.location.pathname.replace(/\/$/, '') || '/'
+        const links = document.querySelectorAll('.nav-links a')
+        links.forEach((link) => {
+            const href = link.getAttribute('href').replace(/\/$/, '') || '/'
+            if (href === path || (href !== '/' && path.startsWith(href))) {
+                link.classList.add('active')
+            }
+        })
+    })()
+</script>

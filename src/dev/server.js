@@ -31,11 +31,39 @@ export class DevServer {
         this.watcher = null
         this.builder = null
         this.rebuildTimer = null
+        this.liveReloadClients = new Set()
+    }
+
+    notifyReload() {
+        if (this.liveReloadClients.size === 0) return
+        console.log(`[Staticraft Dev] Sending reload signal to ${this.liveReloadClients.size} client(s)...`)
+        for (const clientRes of this.liveReloadClients) {
+            try {
+                clientRes.write('event: reload\ndata: {}\n\n')
+            } catch (_) {}
+        }
     }
 
     async handleRequest(req, res) {
         const startTime = Date.now()
         let reqUrl = req.url.split('?')[0]
+
+        // Extensible Staticraft Dev SSE Event Stream endpoint
+        if (reqUrl === '/__staticraft') {
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache, no-transform',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+            })
+            res.write('retry: 1000\n\n')
+            this.liveReloadClients.add(res)
+            req.on('close', () => {
+                this.liveReloadClients.delete(res)
+            })
+            return
+        }
+
         let decodedUrl = reqUrl
         try {
             decodedUrl = decodeURIComponent(reqUrl)
@@ -140,7 +168,36 @@ export class DevServer {
         try {
             const ext = path.extname(resolvedPath).toLowerCase()
             const mimeType = MIME_TYPES[ext] || 'application/octet-stream'
-            const content = await fs.readFile(resolvedPath)
+            let content = await fs.readFile(resolvedPath)
+
+            // Inject Live Reload script into HTML responses during dev mode
+            if (mimeType.startsWith('text/html')) {
+                let htmlStr = content.toString('utf-8')
+                const liveReloadScript = `
+<!-- Staticraft Dev Stream -->
+<script>
+(function() {
+    if (typeof EventSource !== 'undefined') {
+        var source = new EventSource('/__staticraft');
+        source.addEventListener('reload', function() {
+            console.log('[Staticraft] Live reload triggered.');
+            window.location.reload();
+        });
+        source.onmessage = function(event) {
+            if (event.data === 'reload') {
+                window.location.reload();
+            }
+        };
+    }
+})();
+</script>`
+                if (htmlStr.includes('</body>')) {
+                    htmlStr = htmlStr.replace('</body>', `${liveReloadScript}\n</body>`)
+                } else {
+                    htmlStr += liveReloadScript
+                }
+                content = Buffer.from(htmlStr, 'utf-8')
+            }
 
             res.writeHead(200, {
                 'Content-Type': mimeType,
@@ -162,7 +219,7 @@ export class DevServer {
             this.watcher = watch(builder.srcDir, { recursive: true }, (eventType, filename) => {
                 if (!filename || filename.startsWith('.') || filename.includes('.tmp')) return
 
-                // Debounce invalidations to prevent duplicate work on rapid edits
+                // Debounce invalidations & live reload trigger
                 if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
                 this.rebuildTimer = setTimeout(async () => {
                     console.log(`\n[Staticraft Watcher] File changed: src/${filename}`)
@@ -170,6 +227,7 @@ export class DevServer {
                         if (typeof builder.clearCache === 'function') {
                             await builder.clearCache()
                         }
+                        this.notifyReload()
                     } catch (err) {
                         console.error('[Staticraft Watcher Error]', err.message)
                     }
@@ -241,6 +299,10 @@ export class DevServer {
     async stop() {
         if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
         if (this.watcher) this.watcher.close()
+        for (const clientRes of this.liveReloadClients) {
+            try { clientRes.end() } catch (_) {}
+        }
+        this.liveReloadClients.clear()
         if (this.server) {
             return new Promise((resolve) => this.server.close(resolve))
         }

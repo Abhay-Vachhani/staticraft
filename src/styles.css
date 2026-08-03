@@ -80,15 +80,34 @@ a {
 }
 
 .nav-links a {
+    position: relative;
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--text-muted);
     transition: var(--transition);
+    padding-bottom: 4px;
 }
 
 .nav-links a:hover,
 .nav-links a.active {
     color: var(--text);
+}
+
+.nav-links a.active {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.nav-links a.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--accent);
 }
 
 .nav-actions {
