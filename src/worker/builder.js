@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { TemplateEngine } from '../engine/template.js'
-import { generateHashedAsset, rewriteAssetUrls } from '../engine/hashing.js'
+import { generateHashedAsset } from '../engine/hashing.js'
 import { atomicWriteFile, atomicWriteBuffer } from './swapper.js'
 
 export class SiteBuilder {
@@ -16,6 +16,26 @@ export class SiteBuilder {
         })
         this.config = null
         this.assetMap = {}
+        this.inflightPaths = new Map()
+    }
+
+    /**
+     * Coalesces concurrent generatePaths() calls for the same route so a burst
+     * of on-demand requests doesn't trigger duplicate (e.g. network) fetches.
+     */
+    async getGeneratedPaths(routePattern, routeConfig) {
+        if (this.inflightPaths.has(routePattern)) {
+            return this.inflightPaths.get(routePattern)
+        }
+        const promise = (async () => {
+            try {
+                return await routeConfig.generatePaths()
+            } finally {
+                this.inflightPaths.delete(routePattern)
+            }
+        })()
+        this.inflightPaths.set(routePattern, promise)
+        return promise
     }
 
     async loadConfig() {
@@ -58,12 +78,13 @@ export class SiteBuilder {
         })
 
         this.assetMap = {}
+        const basenameOwners = new Map() // basename -> owning relativePath, or null once ambiguous
         for (const assetPath of assetFiles) {
             const relativePath = path.relative(this.srcDir, assetPath)
             const hashedAsset = await generateHashedAsset(assetPath)
             const dirName = path.dirname(relativePath)
-            const hashedRelPath = dirName === '.' 
-                ? hashedAsset.hashedFileName 
+            const hashedRelPath = dirName === '.'
+                ? hashedAsset.hashedFileName
                 : path.join(dirName, hashedAsset.hashedFileName)
 
             const hashedTargetPath = path.join(
@@ -73,7 +94,20 @@ export class SiteBuilder {
             )
 
             await atomicWriteBuffer(hashedTargetPath, hashedAsset.content)
-            this.assetMap[path.basename(assetPath)] = hashedAsset.hashedFileName
+
+            const baseName = path.basename(assetPath)
+            const owner = basenameOwners.get(baseName)
+            if (owner === undefined) {
+                basenameOwners.set(baseName, relativePath)
+                this.assetMap[baseName] = hashedAsset.hashedFileName
+            } else if (owner !== null && owner !== relativePath) {
+                // Same filename exists in multiple directories: the bare-name
+                // mapping is ambiguous, so drop it. Path-qualified references
+                // (assetMap[relativePath]) still resolve correctly.
+                console.warn(`[Staticraft Builder] Asset name "${baseName}" exists in multiple directories; only path-qualified references will be rewritten.`)
+                delete this.assetMap[baseName]
+                basenameOwners.set(baseName, null)
+            }
             this.assetMap[relativePath] = hashedRelPath
         }
     }
@@ -89,8 +123,7 @@ export class SiteBuilder {
             const pagePath = path.join(this.srcDir, 'index.html')
             const data = routeConfig.data ? await routeConfig.data() : {}
             const rawContent = await fs.readFile(pagePath, 'utf-8')
-            let compiledHtml = await this.engine.render(rawContent, data)
-            compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+            let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
 
             const targetPath = path.join(this.outputDir, 'index.html')
             await atomicWriteFile(targetPath, compiledHtml)
@@ -118,13 +151,19 @@ export class SiteBuilder {
 
             if (!rawContent) return { count: 0, routeType, revalidate: revalidateVal }
 
-            const paths = routeConfig.generatePaths ? await routeConfig.generatePaths() : []
+            let paths = []
+            if (routeConfig.generatePaths) {
+                try {
+                    paths = await this.getGeneratedPaths(routePattern, routeConfig)
+                } catch (err) {
+                    console.error(`[Staticraft Builder Error] generatePaths() failed for ${routePattern}:`, err.message)
+                }
+            }
             for (const item of paths) {
                 const paramValue = item.params ? (item.params[paramKey] || item.params.id || item.params.slug) : undefined
                 if (!paramValue) continue
 
-                let compiledHtml = await this.engine.render(rawContent, item.data || {})
-                compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+                let compiledHtml = await this.engine.render(rawContent, item.data || {}, this.assetMap)
 
                 const targetPath = path.join(this.outputDir, baseDir, String(paramValue), 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
@@ -136,8 +175,7 @@ export class SiteBuilder {
             const data = routeConfig.data ? await routeConfig.data() : {}
             try {
                 const rawContent = await fs.readFile(pagePath, 'utf-8')
-                let compiledHtml = await this.engine.render(rawContent, data)
-                compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+                let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
 
                 const targetPath = path.join(this.outputDir, routeName, 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
@@ -151,6 +189,7 @@ export class SiteBuilder {
     async clearCache() {
         this.config = null
         this.assetMap = {}
+        this.inflightPaths.clear()
         try {
             await fs.rm(this.outputDir, { recursive: true, force: true })
             await fs.mkdir(this.outputDir, { recursive: true })
@@ -164,6 +203,7 @@ export class SiteBuilder {
         }
 
         const normalizedUrl = reqUrl.split('?')[0].replace(/\/$/, '') || '/'
+        if (normalizedUrl.includes('..')) return
         const routes = this.config.routes || {}
 
         // 1. Check exact match in configured routes (e.g. '/' or '/products')
@@ -200,19 +240,22 @@ export class SiteBuilder {
                     if (rawContent) {
                         let itemData = {}
                         if (routeConfig.generatePaths) {
+                            let found
                             try {
-                                const paths = await routeConfig.generatePaths()
-                                const found = paths.find((p) => String(p.params?.[paramKey] || p.params?.id || p.params?.slug) === String(reqParamValue))
-                                if (found) itemData = found.data || {}
+                                const paths = await this.getGeneratedPaths(routePattern, routeConfig)
+                                found = paths.find((p) => String(p.params?.[paramKey] || p.params?.id || p.params?.slug) === String(reqParamValue))
                             } catch (_) {}
+                            // generatePaths() defines the full allowlist of valid pages for this
+                            // route - a param that isn't in it is not a real page, so don't render one.
+                            if (!found) continue
+                            itemData = found.data || {}
                         } else if (routeConfig.data) {
                             try {
                                 itemData = await routeConfig.data({ params: { [paramKey]: reqParamValue } })
                             } catch (_) {}
                         }
 
-                        let compiledHtml = await this.engine.render(rawContent, itemData)
-                        compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+                        let compiledHtml = await this.engine.render(rawContent, itemData, this.assetMap)
 
                         const targetPath = path.join(this.outputDir, baseDir.replace(/^\//, ''), String(reqParamValue), 'index.html')
                         await atomicWriteFile(targetPath, compiledHtml)
@@ -228,8 +271,7 @@ export class SiteBuilder {
             const pagePath = path.join(this.srcDir, `${cleanRouteName}.html`)
             try {
                 const rawContent = await fs.readFile(pagePath, 'utf-8')
-                let compiledHtml = await this.engine.render(rawContent, {})
-                compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+                let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
 
                 const targetPath = cleanRouteName === '404'
                     ? path.join(this.outputDir, '404.html')
@@ -302,8 +344,7 @@ export class SiteBuilder {
             }
 
             const rawContent = await fs.readFile(pagePath, 'utf-8')
-            let compiledHtml = await this.engine.render(rawContent, {})
-            compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+            let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
 
             await atomicWriteFile(targetPath, compiledHtml)
             totalPages++

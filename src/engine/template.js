@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { rewriteAssetUrls } from './hashing.js'
 
 /**
  * Contextual HTML Escaping for XSS protection
@@ -75,7 +76,7 @@ export class TemplateEngine {
             const compPath = match[1]
             const fullPath = path.resolve(this.templatesDir, compPath)
 
-            if (!fullPath.startsWith(absTemplatesDir)) {
+            if (fullPath !== absTemplatesDir && !fullPath.startsWith(absTemplatesDir + path.sep)) {
                 console.warn(`[Staticraft Engine] Forbidden component path: ${compPath}`)
                 result = result.replace(fullTag, () => `<!-- Forbidden component: ${compPath} -->`)
                 continue
@@ -118,7 +119,7 @@ export class TemplateEngine {
 
         const pageBody = content.replace(layoutTag, '')
 
-        if (!fullPath.startsWith(absTemplatesDir)) {
+        if (fullPath !== absTemplatesDir && !fullPath.startsWith(absTemplatesDir + path.sep)) {
             console.warn(`[Staticraft Engine] Forbidden layout path: ${layoutPath}`)
             return pageBody
         }
@@ -152,7 +153,7 @@ export class TemplateEngine {
     /**
      * Evaluate array loops: {{#each list}}...{{/each}}
      */
-    processLoops(content, data) {
+    processLoops(content, data, assetMap = null) {
         const eachRegex = /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}([\s\S]*?)\{\{\/each\}\}/g
         return content.replace(eachRegex, (match, arrayPath, itemTemplate) => {
             const list = resolveProperty(data, arrayPath)
@@ -166,8 +167,9 @@ export class TemplateEngine {
                     itemScope = { ...data, this: item }
                 }
                 let itemHtml = itemTemplate
-                itemHtml = this.processLoops(itemHtml, itemScope)
+                itemHtml = this.processLoops(itemHtml, itemScope, assetMap)
                 itemHtml = this.processConditionals(itemHtml, itemScope)
+                if (assetMap) itemHtml = rewriteAssetUrls(itemHtml, assetMap)
                 itemHtml = this.processVariables(itemHtml, itemScope)
                 return itemHtml
             }).join('')
@@ -202,11 +204,12 @@ export class TemplateEngine {
     /**
      * Compile template file or string into final HTML
      */
-    async render(templateContent, data = {}) {
+    async render(templateContent, data = {}, assetMap = null) {
         let html = await this.processLayout(templateContent)
         html = await this.processComponents(html)
-        html = this.processLoops(html, data)
+        html = this.processLoops(html, data, assetMap)
         html = this.processConditionals(html, data)
+        if (assetMap) html = rewriteAssetUrls(html, assetMap)
         html = this.processVariables(html, data)
         return html
     }

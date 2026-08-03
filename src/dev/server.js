@@ -91,7 +91,7 @@ export class DevServer {
             if (!is404Route) {
                 for (const cand of candidatePaths) {
                     const absCand = path.resolve(cand)
-                    if (!absCand.startsWith(absStaticDir)) continue
+                    if (absCand !== absStaticDir && !absCand.startsWith(absStaticDir + path.sep)) continue
                     try {
                         const stat = await fs.stat(absCand)
                         if (stat.isFile()) return absCand
@@ -106,7 +106,7 @@ export class DevServer {
         // Lazy On-Demand Rendering: Compile page on request if missing from .raft/
         if (!resolvedPath && this.builder && typeof this.builder.renderOnDemand === 'function') {
             try {
-                await this.builder.renderOnDemand(reqUrl)
+                await this.builder.renderOnDemand(safePath)
                 resolvedPath = await findResolvedPath()
             } catch (err) {
                 console.error(`[Staticraft Dev Server] Error compiling ${reqUrl} on demand:`, err.message)
