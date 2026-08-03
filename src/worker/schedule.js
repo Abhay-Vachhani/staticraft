@@ -1,11 +1,10 @@
-import path from 'node:path'
+import { formatDuration } from './builder.js'
 
 export const DEFAULT_EXPIRY_SECONDS = 31536000 // 1 Year
 
 export class ScheduleManager {
-    constructor(builder, config = {}) {
+    constructor(builder) {
         this.builder = builder
-        this.config = config
         this.timers = []
         this.running = false
     }
@@ -13,19 +12,20 @@ export class ScheduleManager {
     start() {
         if (this.running) return
         this.running = true
-        console.log(`[Staticraft Schedule] Active revalidation timers from staticraft.config.js:`)
+        console.log(`[Staticraft Schedule] Active revalidation timers from discovered routes:`)
 
-        const routes = this.config.routes || {}
-        for (const [routePattern, routeConfig] of Object.entries(routes)) {
-            if (routeConfig.revalidate) {
-                const intervalMs = routeConfig.revalidate * 1000
-                console.log(`   > Route ${routePattern}: Revalidates every ${routeConfig.revalidate}s`)
+        const routes = this.builder.routes || {}
+        for (const [routePattern, routeEntry] of Object.entries(routes)) {
+            const { mod } = routeEntry
+            if (mod.revalidate) {
+                const intervalMs = mod.revalidate * 1000
+                console.log(`   > Route ${routePattern}: Revalidates every ${formatDuration(mod.revalidate)}`)
 
                 const timer = setInterval(async () => {
                     if (!this.running) return
-                    console.log(`[Staticraft Schedule] Invalidation timer triggered for ${routePattern} (${routeConfig.revalidate}s)`)
+                    console.log(`[Staticraft Schedule] Invalidation timer triggered for ${routePattern} (${formatDuration(mod.revalidate)})`)
                     try {
-                        await this.builder.buildRoute(routePattern, routeConfig)
+                        await this.builder.buildRoute(routePattern, routeEntry)
                     } catch (err) {
                         console.error(`[Staticraft Schedule Error] Route ${routePattern}:`, err.message)
                     }

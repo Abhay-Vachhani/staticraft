@@ -10,7 +10,8 @@
     "scripts": {
         "dev": "./staticraft dev",
         "build": "./staticraft build",
-        "start": "./staticraft start"
+        "start": "./staticraft start",
+        "test": "node --test --test-isolation=none"
     },
     "keywords": [
         "staticraft",

@@ -52,7 +52,8 @@ A private background worker fetches data, renders HTML files using atomic file s
 - 📡 **Continuous Revalidation**: Routes are re-rendered on configurable timers (e.g., every 100s, 600s) via the background `ScheduleManager`. Permanent pages have no timer and are never auto-invalidated.
 - 💻 **Zero-Setup Dev Mode**: Built-in dev server on `localhost:4455` (auto port fallback) with live rebuild on file changes — no Nginx/Caddy needed locally.
 - 🧩 **Component Architecture**: Reusable layouts, components, partials, slot injection, and automatic asset fingerprinting (e.g. `styles.f4603f46.css`).
-- 🚫 **Custom 404 Page**: Drop a `src/404.html` to define your own not-found error page — compiled automatically and served on any missing route.
+- 🚫 **Custom 404 Page**: Drop a `src/app/404.html` to define your own not-found error page — compiled automatically and served on any missing route.
+- 🗺️ **Sitemap & Robots**: `sitemap.xml` and `robots.txt` are generated automatically from every known route — on `staticraft build`, and on demand in `staticraft dev`.
 - 💰 **Low Cost & High Scalability**: Serve millions of requests with minimal infrastructure overhead.
 
 ---
@@ -66,7 +67,7 @@ Create modular HTML templates using layouts, components, slot injection, and dyn
 A daemon process running inside a private network. In production (`staticraft start`), it opens **no public HTTP ports** — it only writes files into `.raft/`.
 
 ### 3. Data Integration
-Routes pull dynamic content from external APIs, databases, CMS, or local data files via the `data()` and `generatePaths()` hooks in `staticraft.config.js`.
+Routes pull dynamic content from external APIs, databases, CMS, or local data files via the `data()` and `generatePaths()` hooks in each route's colocated `server.js` file.
 
 ### 4. Timer-Based Revalidation
 Routes with a `revalidate` interval are re-fetched and re-rendered on a background timer by `ScheduleManager`. Routes without `revalidate` are **permanent** — compiled once and never auto-invalidated.
@@ -106,44 +107,82 @@ staticraft start              # Run production background worker (NO HTTP server
 staticraft build              # One-shot build: compile all pages to .raft/ and exit
 ```
 
+### Running the Test Suite
+```bash
+npm test    # node's built-in test runner - no test framework dependency
+```
+Tests live under `test/`, mirroring `src/`'s structure, and run entirely against throwaway temp-directory fixtures — they never touch this repo's own `src/`, `.raft/`, or `staticraft.config.js`.
+
 ---
 
 ## ⚙️ Configuration — `staticraft.config.js`
 
-Define routes, data fetchers, revalidation timers, and output settings:
+This file holds only global build settings — no route or data logic lives here:
 
 ```js
 export default {
     outputDir: '.raft',
+    defaultExpiry: '1y',
+    siteUrl: 'https://example.com', // Optional - enables sitemap.xml generation
+}
+```
 
-    routes: {
-        // Static route with a revalidation timer
-        '/': {
-            revalidate: 600, // Re-render every 600 seconds
-            data: async () => {
-                const res = await fetch('https://api.example.com/featured')
-                return await res.json()
-            }
-        },
+| Field | Description |
+|-------|--------------|
+| `outputDir` | Where compiled pages are written (default `.raft`). |
+| `defaultExpiry` | Default CDN cache expiry. |
+| `siteUrl` | Absolute origin used to build `sitemap.xml`. Omit to skip sitemap generation entirely. |
 
-        // Dynamic SSG route — generates one page per item
-        '/products/:id': {
-            revalidate: 100,
-            generatePaths: async () => {
-                const res = await fetch('https://api.example.com/products?limit=0')
-                const { products } = await res.json()
-                return products.map(p => ({
-                    params: { id: String(p.id) },
-                    data: p
-                }))
-            }
-        },
+## 🗺️ Routing — file-based, colocated `server.js`
 
-        // Permanent static route (no revalidate = never auto-invalidated)
-        '/about': {}
+Every route is defined by where its files live under `src/app/` — Staticraft's own engine (`src/engine`, `src/worker`, `src/dev`, `src/cli.js`) lives outside of it, so a route or asset can never collide with or accidentally expose engine internals:
+
+- **A folder containing `page.html`** is a route. The folder path (relative to `src/app/`) becomes the URL, and `[param]` segments become dynamic params — e.g. `src/app/products/[id]/page.html` → `/products/:id`. `src/app/page.html` itself is the root route, `/`.
+- **A sibling `server.js`** in that same folder is optional and supplies `data`, `generatePaths`, and `revalidate`.
+- **A bare `name.html`** with no folder is a purely static page (no data/revalidate possible) — e.g. `src/app/about.html` → `/about`.
+
+```js
+// src/app/products/[id]/server.js
+export default {
+    revalidate: 3600, // Re-render every 3600 seconds (omit = permanent, never auto-invalidated)
+
+    // On-demand rendering (dev lazy-compile, production on-demand): fetches
+    // just the one requested item. Preferred over generatePaths() whenever
+    // both are defined - return null/undefined to signal "not a real page"
+    // (renders a 404 instead).
+    data: async ({ params }) => {
+        const res = await fetch(`https://api.example.com/products/${params.id}`)
+        if (!res.ok) return null
+        return { product: await res.json() }
+    },
+
+    // Full/scheduled builds: enumerates every valid id so all pages can be
+    // prebuilt ahead of time. Not used for on-demand requests when data() exists.
+    generatePaths: async () => {
+        const res = await fetch('https://api.example.com/products?limit=0')
+        const { products } = await res.json()
+        return products.map(p => ({
+            params: { id: String(p.id) },
+            data: { product: p }
+        }))
     }
 }
 ```
+
+Only need one prebuilt page per request and no full-build step? A dynamic route can define `data()` alone with no `generatePaths()` — every id is accepted and fetched on demand, but `staticraft build`/`start` won't prebuild any pages for it up front.
+
+```js
+// src/app/server.js - colocated with src/app/page.html, the root route "/"
+export default {
+    revalidate: 600,
+    data: async () => {
+        const res = await fetch('https://api.example.com/featured')
+        return await res.json()
+    }
+}
+```
+
+`src/app/about.html` needs no `server.js` at all — it's rendered once, permanently, with no data.
 
 ### Route Types
 
@@ -165,30 +204,38 @@ export default {
 ```
 my-site/
 ├── src/
-│   ├── index.html          # Home page template
-│   ├── products.html       # Products listing template
-│   ├── 404.html            # Custom error page (system template, not a routable URL)
-│   ├── products/
-│   │   └── [id].html       # Dynamic product detail template
-│   ├── layouts/
-│   │   └── base.html       # Shared base layout
-│   └── components/         # Reusable partials
-│       └── navbar.html
-├── staticraft.config.js    # Route & data configuration
+│   └── app/                # All site content lives here
+│       ├── page.html       # Home page template ("/")
+│       ├── server.js       # Optional data/revalidate for "/"
+│       ├── products/
+│       │   ├── page.html   # Products listing template ("/products")
+│       │   ├── server.js   # Optional data/revalidate for "/products"
+│       │   └── [id]/
+│       │       ├── page.html   # Dynamic product detail template ("/products/:id")
+│       │       └── server.js   # generatePaths (or data) + revalidate
+│       ├── about.html      # Flat = purely static page, no server.js needed
+│       ├── 404.html        # Custom error page (system template, not a routable URL)
+│       ├── layouts/
+│       │   └── base.html   # Shared base layout
+│       └── components/     # Reusable partials
+│           └── navbar.html
+├── staticraft.config.js    # Global settings only (outputDir, defaultExpiry)
 └── .raft/                  # Compiled static output (served by Nginx/Caddy)
     ├── index.html
     ├── products/
     │   ├── index.html
     │   └── 42/
     │       └── index.html
-    └── 404.html            # Compiled from src/404.html
+    └── 404.html            # Compiled from src/app/404.html
 ```
+
+`src/app/` is the only directory Staticraft ever reads routes/assets from — it never touches anything outside it (its own engine code lives entirely separately), so a route or static file in your project can never collide with or accidentally expose Staticraft's internals.
 
 ---
 
 ## 🚫 Custom 404 Page
 
-Create `src/404.html` using your site layout:
+Create `src/app/404.html` using your site layout:
 
 ```html
 {{ layout "layouts/base.html" }}
@@ -209,6 +256,19 @@ error_page 404 /404.html;
 
 ---
 
+## 🗺️ Sitemap & Robots
+
+`staticraft build` (and `staticraft start`'s initial build) always writes `.raft/robots.txt`, and writes `.raft/sitemap.xml` too if `siteUrl` is set in `staticraft.config.js`. `staticraft dev` generates both lazily on first request, same as any other on-demand page.
+
+- **`sitemap.xml`** lists every page Staticraft knows about — every static route, every enumerated dynamic (`generatePaths()`) page, and every flat static HTML page — excluding `404`. In a full build this comes from the same data as the build manifest, so it can't drift from what's really in `.raft/`.
+- **`robots.txt`** is always generated (`Allow: /`), with a `Sitemap:` line added automatically when `siteUrl` is configured.
+
+In dev mode, requesting `/sitemap.xml` still has to enumerate every dynamic route via its `generatePaths()` (there's no way to list every page without it), so the first request can be as slow as a full build — but it doesn't render the individual pages themselves, and the result is cached to disk like any other on-demand route until the next file change.
+
+Without `siteUrl` configured, `sitemap.xml` is skipped (with a console warning) since sitemap URLs must be absolute.
+
+---
+
 ## 📊 Build Output
 
 `staticraft build` prints a full summary table:
@@ -219,7 +279,7 @@ error_page 404 /404.html;
 ├──────────────────────────┼──────────────┼──────────────┼──────────┤
 │ ○ /                      │ 600s         │ 1 Year       │        1 │
 │ ○ /products              │ 300s         │ 1 Year       │        1 │
-│ ● /products/:id          │ 100s         │ 1 Year       │      194 │
+│ ● /products/:id          │ 3600s        │ 1 Year       │      194 │
 │ ○ /about                 │ -            │ -            │        1 │
 │ ○ 404                    │ -            │ -            │        1 │
 └──────────────────────────┴──────────────┴──────────────┴──────────┘
@@ -249,15 +309,15 @@ error_page 404 /404.html;
 
 ## 🧪 Demo Site — KRAFT
 
-The `src/` directory contains **KRAFT**, a demo studio objects catalog used to demonstrate Staticraft's capabilities:
+The `src/app/` directory contains **KRAFT**, a demo studio objects catalog used to demonstrate Staticraft's capabilities:
 
 - **Home** (`/`) — Hero section, revalidated every 600s.
 - **Collection** (`/products`) — Product listing, revalidated every 300s.
-- **Product Detail** (`/products/:id`) — 194 individual product pages from the [DummyJSON API](https://dummyjson.com/docs/products), each revalidated every 100s.
+- **Product Detail** (`/products/:id`) — 194 individual product pages from the [DummyJSON API](https://dummyjson.com/docs/products), each revalidated every 3600s.
 - **About** (`/about`) — Permanent static page with no revalidation.
 - **404** — Custom error page served on any missing route.
 
-> This demo site is illustrative only. Replace `src/` templates and `staticraft.config.js` routes with your own project content.
+> This demo site is illustrative only. Replace the `src/app/` route folders (`page.html` + `server.js`) with your own project content.
 
 ---
 

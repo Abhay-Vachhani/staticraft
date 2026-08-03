@@ -67,8 +67,8 @@ export async function runCli(args = process.argv.slice(2)) {
         case 'start':
             showBanner()
             console.log(`[Staticraft] Starting production background worker (0 public HTTP ports open)...`)
-            const config = await builder.loadConfig()
-            
+            await builder.loadConfig()
+
             // Check if output directory already exists and contains files
             let raftExists = false
             try {
@@ -83,7 +83,7 @@ export async function runCli(args = process.argv.slice(2)) {
                 await builder.build()
             }
 
-            const schedule = new ScheduleManager(builder, config)
+            const schedule = new ScheduleManager(builder)
             schedule.start()
             break
 

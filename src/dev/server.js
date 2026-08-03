@@ -9,6 +9,8 @@ const MIME_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
+    '.txt': 'text/plain; charset=utf-8',
+    '.xml': 'application/xml; charset=utf-8',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -285,7 +287,10 @@ export class DevServer {
                         }
                     }
                     console.log(`   > Output:  .raft/`)
-                    console.log(`   > Watching: src/ for live changes...\n`)
+                    const watchDir = this.builder?.srcDir
+                        ? path.relative(this.rootDir, this.builder.srcDir) + '/'
+                        : 'src/'
+                    console.log(`   > Watching: ${watchDir} for live changes...\n`)
                     resolve({ port, host: this.bindHost })
                 })
 

@@ -1,20 +1,49 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { TemplateEngine } from '../engine/template.js'
+import { TemplateEngine, escapeHtml } from '../engine/template.js'
 import { generateHashedAsset } from '../engine/hashing.js'
 import { atomicWriteFile, atomicWriteBuffer } from './swapper.js'
+
+const DURATION_UNITS = [
+    { unit: 'year', secs: 31536000 },
+    { unit: 'week', secs: 604800 },
+    { unit: 'day', secs: 86400 },
+    { unit: 'hr', secs: 3600 },
+    { unit: 'min', secs: 60 },
+    { unit: 'sec', secs: 1 },
+]
+
+/**
+ * Formats a revalidate interval in seconds as a human-readable duration,
+ * e.g. 600 -> "10 mins", 3600 -> "1 hr", 604800 -> "1 week".
+ */
+export function formatDuration(seconds) {
+    if (!seconds || seconds <= 0) return 'Manual'
+    for (const { unit, secs } of DURATION_UNITS) {
+        if (seconds >= secs) {
+            const value = seconds / secs
+            const rounded = Number.isInteger(value) ? value : Math.round(value * 10) / 10
+            return `${rounded} ${unit}${rounded === 1 ? '' : 's'}`
+        }
+    }
+    return `${seconds} secs`
+}
 
 export class SiteBuilder {
     constructor(options = {}) {
         this.rootDir = options.rootDir || process.cwd()
-        this.srcDir = options.srcDir || path.join(this.rootDir, 'src')
+        // Site content lives under src/app/ - kept separate from the engine
+        // (src/engine, src/worker, src/dev, src/cli.js) so a route/asset can
+        // never collide with or accidentally expose engine internals.
+        this.srcDir = options.srcDir || path.join(this.rootDir, 'src', 'app')
         this.outputDir = options.outputDir || path.join(this.rootDir, '.raft')
         this.engine = new TemplateEngine({
             rootDir: this.rootDir,
             templatesDir: this.srcDir
         })
         this.config = null
+        this.routes = null
         this.assetMap = {}
         this.inflightPaths = new Map()
     }
@@ -46,10 +75,47 @@ export class SiteBuilder {
             this.config = module.default || {}
             this.outputDir = path.resolve(this.rootDir, this.config.outputDir || '.raft')
         } catch (err) {
-            this.config = { routes: {} }
+            this.config = {}
             this.outputDir = path.resolve(this.rootDir, '.raft')
         }
+        await this.discoverRoutes()
         return this.config
+    }
+
+    /**
+     * File-based routing: every `page.html` found under src/app/ defines a route.
+     * Its parent folder path (relative to src/app/) becomes the route pattern,
+     * with `[param]` segments turned into `:param` - src/app/page.html itself
+     * (empty relative path) is the root route "/". A sibling `server.js` in
+     * the same folder (optional) supplies data/generatePaths/revalidate.
+     */
+    async discoverRoutes() {
+        const routes = {}
+        const allFiles = await this.getFiles(this.srcDir)
+        const pageFiles = allFiles.filter((f) => path.basename(f) === 'page.html')
+
+        for (const pagePath of pageFiles) {
+            const dir = path.dirname(pagePath)
+            const relDir = path.relative(this.srcDir, dir)
+            const segments = relDir === '.' ? [] : relDir.split(path.sep)
+
+            const routePattern = '/' + segments
+                .map((seg) => (seg.startsWith('[') && seg.endsWith(']') ? `:${seg.slice(1, -1)}` : seg))
+                .join('/')
+
+            let mod = {}
+            const serverPath = path.join(dir, 'server.js')
+            try {
+                const serverUrl = pathToFileURL(serverPath).href
+                const serverModule = await import(`${serverUrl}?t=${Date.now()}`)
+                mod = serverModule.default || {}
+            } catch (_) {}
+
+            routes[routePattern] = { dir, mod }
+        }
+
+        this.routes = routes
+        return routes
     }
 
     async getFiles(dir) {
@@ -72,9 +138,9 @@ export class SiteBuilder {
     async processAssets() {
         const allFiles = await this.getFiles(this.srcDir)
         const assetFiles = allFiles.filter((f) => {
-            const rel = path.relative(this.srcDir, f)
-            const isInternalJs = rel.startsWith('engine/') || rel.startsWith('worker/') || rel.startsWith('dev/') || rel === 'cli.js'
-            return !f.endsWith('.html') && !path.basename(f).startsWith('.') && !isInternalJs
+            const isRouteServerFile = path.basename(f) === 'server.js'
+            const isGeneratedWellKnown = path.basename(f) === 'robots.txt' || path.basename(f) === 'sitemap.xml'
+            return !f.endsWith('.html') && !path.basename(f).startsWith('.') && !isRouteServerFile && !isGeneratedWellKnown
         })
 
         this.assetMap = {}
@@ -112,49 +178,43 @@ export class SiteBuilder {
         }
     }
 
-    async buildRoute(routePattern, routeConfig) {
-        if (!this.config) await this.loadConfig()
+    async buildRoute(routePattern, routeEntry) {
+        if (!this.routes) await this.loadConfig()
 
+        const { dir, mod } = routeEntry
         let count = 0
         let routeType = 'Static'
-        const revalidateVal = routeConfig.revalidate ? `${routeConfig.revalidate}s` : 'Manual'
+        let urls = []
+        const revalidateVal = formatDuration(mod.revalidate)
 
         if (routePattern === '/') {
-            const pagePath = path.join(this.srcDir, 'index.html')
-            const data = routeConfig.data ? await routeConfig.data() : {}
+            const pagePath = path.join(dir, 'page.html')
+            const data = mod.data ? await mod.data() : {}
             const rawContent = await fs.readFile(pagePath, 'utf-8')
             let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
 
             const targetPath = path.join(this.outputDir, 'index.html')
             await atomicWriteFile(targetPath, compiledHtml)
             count = 1
+            urls = ['/']
         } else if (routePattern.includes(':')) {
             routeType = 'Dynamic (SSG)'
             const baseDir = routePattern.split('/:')[0].replace(/^\//, '')
             const paramMatch = routePattern.match(/:([a-zA-Z0-9_]+)/)
             const paramKey = paramMatch ? paramMatch[1] : 'id'
 
-            const templateCandidates = [
-                path.join(this.srcDir, baseDir, `[${paramKey}].html`),
-                path.join(this.srcDir, baseDir, '[id].html'),
-                path.join(this.srcDir, baseDir, '[slug].html'),
-                path.join(this.srcDir, baseDir, 'detail.html')
-            ]
-            
+            const pagePath = path.join(dir, 'page.html')
             let rawContent = ''
-            for (const cand of templateCandidates) {
-                try {
-                    rawContent = await fs.readFile(cand, 'utf-8')
-                    break
-                } catch (_) {}
-            }
+            try {
+                rawContent = await fs.readFile(pagePath, 'utf-8')
+            } catch (_) {}
 
-            if (!rawContent) return { count: 0, routeType, revalidate: revalidateVal }
+            if (!rawContent) return { count: 0, routeType, revalidate: revalidateVal, urls }
 
             let paths = []
-            if (routeConfig.generatePaths) {
+            if (mod.generatePaths) {
                 try {
-                    paths = await this.getGeneratedPaths(routePattern, routeConfig)
+                    paths = await this.getGeneratedPaths(routePattern, mod)
                 } catch (err) {
                     console.error(`[Staticraft Builder Error] generatePaths() failed for ${routePattern}:`, err.message)
                 }
@@ -168,11 +228,12 @@ export class SiteBuilder {
                 const targetPath = path.join(this.outputDir, baseDir, String(paramValue), 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
                 count++
+                urls.push(`/${baseDir}/${paramValue}`)
             }
         } else {
             const routeName = routePattern.replace(/^\//, '')
-            const pagePath = path.join(this.srcDir, `${routeName}.html`)
-            const data = routeConfig.data ? await routeConfig.data() : {}
+            const pagePath = path.join(dir, 'page.html')
+            const data = mod.data ? await mod.data() : {}
             try {
                 const rawContent = await fs.readFile(pagePath, 'utf-8')
                 let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
@@ -180,14 +241,16 @@ export class SiteBuilder {
                 const targetPath = path.join(this.outputDir, routeName, 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
                 count = 1
+                urls = [routePattern]
             } catch (_) {}
         }
 
-        return { count, routeType, revalidate: revalidateVal }
+        return { count, routeType, revalidate: revalidateVal, urls }
     }
 
     async clearCache() {
         this.config = null
+        this.routes = null
         this.assetMap = {}
         this.inflightPaths.clear()
         try {
@@ -197,63 +260,74 @@ export class SiteBuilder {
     }
 
     async renderOnDemand(reqUrl) {
-        if (!this.config) await this.loadConfig()
+        if (!this.routes) await this.loadConfig()
         if (Object.keys(this.assetMap).length === 0) {
             await this.processAssets()
         }
 
         const normalizedUrl = reqUrl.split('?')[0].replace(/\/$/, '') || '/'
         if (normalizedUrl.includes('..')) return
-        const routes = this.config.routes || {}
+        const routes = this.routes || {}
 
-        // 1. Check exact match in configured routes (e.g. '/' or '/products')
+        // 0. robots.txt / sitemap.xml are generated on demand too, not just on `build()`
+        if (normalizedUrl === '/robots.txt') {
+            await this.writeRobotsTxt()
+            return
+        }
+        if (normalizedUrl === '/sitemap.xml') {
+            const urls = this.config.siteUrl ? await this.collectAllSiteUrls() : []
+            await this.writeSitemapXml(urls)
+            return
+        }
+
+        // 1. Check exact match against discovered routes (e.g. '/' or '/products')
         if (routes[normalizedUrl]) {
             await this.buildRoute(normalizedUrl, routes[normalizedUrl])
             return
         }
 
         // 2. Check dynamic SSG routes (e.g. '/products/42' matching '/products/:id')
-        for (const [routePattern, routeConfig] of Object.entries(routes)) {
+        for (const [routePattern, routeEntry] of Object.entries(routes)) {
             if (routePattern.includes(':')) {
+                const { dir, mod } = routeEntry
                 const baseDir = routePattern.split('/:')[0]
                 const paramMatch = routePattern.match(/:([a-zA-Z0-9_]+)/)
                 const paramKey = paramMatch ? paramMatch[1] : 'id'
 
                 if (normalizedUrl.startsWith(baseDir + '/')) {
                     const reqParamValue = normalizedUrl.slice(baseDir.length + 1)
-                    
-                    const templateCandidates = [
-                        path.join(this.srcDir, baseDir.replace(/^\//, ''), `[${paramKey}].html`),
-                        path.join(this.srcDir, baseDir.replace(/^\//, ''), '[id].html'),
-                        path.join(this.srcDir, baseDir.replace(/^\//, ''), '[slug].html'),
-                        path.join(this.srcDir, baseDir.replace(/^\//, ''), 'detail.html')
-                    ]
 
+                    const pagePath = path.join(dir, 'page.html')
                     let rawContent = ''
-                    for (const cand of templateCandidates) {
-                        try {
-                            rawContent = await fs.readFile(cand, 'utf-8')
-                            break
-                        } catch (_) {}
-                    }
+                    try {
+                        rawContent = await fs.readFile(pagePath, 'utf-8')
+                    } catch (_) {}
 
                     if (rawContent) {
-                        let itemData = {}
-                        if (routeConfig.generatePaths) {
+                        // Prefer a by-id data() fetch for on-demand rendering: it's a single
+                        // targeted request, whereas generatePaths() re-fetches the entire
+                        // collection just to pick out one item. generatePaths() is still what
+                        // build()/schedule use to enumerate & prebuild every page, and remains
+                        // the fallback here for routes that don't define data().
+                        let itemData = null
+                        if (mod.data) {
+                            try {
+                                itemData = await mod.data({ params: { [paramKey]: reqParamValue } })
+                            } catch (_) {
+                                itemData = null
+                            }
+                        } else if (mod.generatePaths) {
                             let found
                             try {
-                                const paths = await this.getGeneratedPaths(routePattern, routeConfig)
+                                const paths = await this.getGeneratedPaths(routePattern, mod)
                                 found = paths.find((p) => String(p.params?.[paramKey] || p.params?.id || p.params?.slug) === String(reqParamValue))
                             } catch (_) {}
-                            // generatePaths() defines the full allowlist of valid pages for this
-                            // route - a param that isn't in it is not a real page, so don't render one.
-                            if (!found) continue
-                            itemData = found.data || {}
-                        } else if (routeConfig.data) {
-                            try {
-                                itemData = await routeConfig.data({ params: { [paramKey]: reqParamValue } })
-                            } catch (_) {}
+                            if (found) itemData = found.data || {}
                         }
+
+                        // No data resolved (data() returned null/undefined, or the id wasn't in
+                        // generatePaths()'s allowlist) - this isn't a real page, don't render one.
+                        if (!itemData) continue
 
                         let compiledHtml = await this.engine.render(rawContent, itemData, this.assetMap)
 
@@ -265,7 +339,7 @@ export class SiteBuilder {
             }
         }
 
-        // 3. Unconfigured static HTML pages (e.g. '/about' -> src/about.html or '/404' -> src/404.html)
+        // 3. Unconfigured static HTML pages (e.g. '/about' -> src/app/about.html or '/404' -> src/app/404.html)
         const cleanRouteName = normalizedUrl.replace(/^\//, '')
         if (cleanRouteName) {
             const pagePath = path.join(this.srcDir, `${cleanRouteName}.html`)
@@ -283,6 +357,79 @@ export class SiteBuilder {
         }
     }
 
+    /**
+     * Enumerates every URL Staticraft knows about without rendering any pages -
+     * used to generate an accurate sitemap.xml on demand in dev mode, where most
+     * pages haven't been built yet. Dynamic routes still need generatePaths()
+     * to know their full set of ids; that's the one unavoidable cost of listing
+     * every page, and only happens when sitemap.xml itself is requested.
+     */
+    async collectAllSiteUrls() {
+        if (!this.routes) await this.loadConfig()
+        const routes = this.routes || {}
+        const urls = []
+
+        for (const [routePattern, routeEntry] of Object.entries(routes)) {
+            const { mod } = routeEntry
+            if (routePattern.includes(':')) {
+                if (!mod.generatePaths) continue
+                const baseDir = routePattern.split('/:')[0].replace(/^\//, '')
+                const paramMatch = routePattern.match(/:([a-zA-Z0-9_]+)/)
+                const paramKey = paramMatch ? paramMatch[1] : 'id'
+                let paths = []
+                try {
+                    paths = await this.getGeneratedPaths(routePattern, mod)
+                } catch (_) {}
+                for (const item of paths) {
+                    const paramValue = item.params ? (item.params[paramKey] || item.params.id || item.params.slug) : undefined
+                    if (paramValue) urls.push(`/${baseDir}/${paramValue}`)
+                }
+            } else {
+                urls.push(routePattern)
+            }
+        }
+
+        const allFiles = await this.getFiles(this.srcDir)
+        const otherHtmlFiles = allFiles.filter((f) => {
+            const rel = path.relative(this.srcDir, f)
+            const baseName = path.basename(f)
+            const isLayoutOrComp = rel.startsWith('layouts/') || rel.startsWith('components/') || rel.startsWith('_')
+            return f.endsWith('.html') && baseName !== 'page.html' && !isLayoutOrComp && !baseName.startsWith('_')
+        })
+        for (const pagePath of otherHtmlFiles) {
+            const relativePath = path.relative(this.srcDir, pagePath)
+            const routeName = relativePath.slice(0, -5)
+            if (relativePath === '404.html' || routeName === '404') continue
+
+            const wouldBeRoutePattern = '/' + routeName
+            if (routes[wouldBeRoutePattern]) continue // shadowed by a folder-based route
+            urls.push(wouldBeRoutePattern)
+        }
+
+        return urls
+    }
+
+    async writeSitemapXml(siteUrls) {
+        const siteUrl = this.config.siteUrl ? this.config.siteUrl.replace(/\/+$/, '') : null
+        if (!siteUrl) {
+            console.warn('[Staticraft Builder] No "siteUrl" configured in staticraft.config.js - skipping sitemap.xml generation.')
+            return
+        }
+        const urlEntries = siteUrls
+            .map((urlPath) => `    <url><loc>${escapeHtml(siteUrl + urlPath)}</loc></url>`)
+            .join('\n')
+        const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>\n`
+        await atomicWriteFile(path.join(this.outputDir, 'sitemap.xml'), sitemapXml)
+    }
+
+    async writeRobotsTxt() {
+        const siteUrl = this.config.siteUrl ? this.config.siteUrl.replace(/\/+$/, '') : null
+        const robotsTxt = siteUrl
+            ? `User-agent: *\nAllow: /\n\nSitemap: ${siteUrl}/sitemap.xml\n`
+            : `User-agent: *\nAllow: /\n`
+        await atomicWriteFile(path.join(this.outputDir, 'robots.txt'), robotsTxt)
+    }
+
     async build() {
         console.log(`[Staticraft Builder] Starting build...`)
         const startTime = Date.now()
@@ -292,21 +439,23 @@ export class SiteBuilder {
         await this.processAssets()
 
         const buildManifest = []
+        const siteUrls = []
         let totalPages = 0
         let totalStaticCount = 0
         let totalSsgCount = 0
         const defaultExpiry = this.config.defaultExpiry || '1y'
 
-        // 1. Render configured routes from staticraft.config.js
-        const routes = this.config.routes || {}
-        for (const [routePattern, routeConfig] of Object.entries(routes)) {
-            const { count, routeType, revalidate } = await this.buildRoute(routePattern, routeConfig)
+        // 1. Render file-based routes discovered from src/app/**/page.html
+        const routes = this.routes || {}
+        for (const [routePattern, routeEntry] of Object.entries(routes)) {
+            const { count, routeType, revalidate, urls } = await this.buildRoute(routePattern, routeEntry)
             totalPages += count
             if (routeType.includes('Dynamic')) {
                 totalSsgCount += count
             } else {
                 totalStaticCount += count
             }
+            siteUrls.push(...urls)
             buildManifest.push({
                 route: routePattern,
                 type: routeType,
@@ -316,22 +465,25 @@ export class SiteBuilder {
             })
         }
 
-        // 2. Render unconfigured static HTML pages
+        // 2. Render flat, purely-static HTML pages (no folder/server.js of their own)
         const allFiles = await this.getFiles(this.srcDir)
         const otherHtmlFiles = allFiles.filter((f) => {
             const rel = path.relative(this.srcDir, f)
             const baseName = path.basename(f)
             const isLayoutOrComp = rel.startsWith('layouts/') || rel.startsWith('components/') || rel.startsWith('_')
-            const isBracketTemplate = baseName.includes('[') || baseName.includes(']')
-            const routeName = '/' + rel.replace(/\.html$/, '')
-            const isConfigured = Boolean(routes[routeName]) || rel === 'index.html'
-            return f.endsWith('.html') && !isLayoutOrComp && !isBracketTemplate && !isConfigured && !baseName.startsWith('_')
+            return f.endsWith('.html') && baseName !== 'page.html' && !isLayoutOrComp && !baseName.startsWith('_')
         })
 
         for (const pagePath of otherHtmlFiles) {
             const relativePath = path.relative(this.srcDir, pagePath)
             const routeName = relativePath.slice(0, -5)
-            
+            const wouldBeRoutePattern = '/' + routeName
+
+            if (routes[wouldBeRoutePattern]) {
+                console.warn(`[Staticraft Builder] "${relativePath}" is shadowed by the folder-based route "${wouldBeRoutePattern}" (page.html); the flat file is ignored.`)
+                continue
+            }
+
             let targetPath
             let displayRoute
 
@@ -349,6 +501,7 @@ export class SiteBuilder {
             await atomicWriteFile(targetPath, compiledHtml)
             totalPages++
             totalStaticCount++
+            if (displayRoute !== '404') siteUrls.push(displayRoute)
             buildManifest.push({
                 route: displayRoute,
                 type: 'Static',
@@ -357,6 +510,11 @@ export class SiteBuilder {
                 count: 1
             })
         }
+
+        // 3. sitemap.xml (requires an absolute siteUrl) and robots.txt (always).
+        // Reuses the urls already collected above - avoids re-fetching generatePaths().
+        await this.writeSitemapXml(siteUrls)
+        await this.writeRobotsTxt()
 
         const elapsed = Date.now() - startTime
 
