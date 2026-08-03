@@ -15,36 +15,87 @@ export function escapeHtml(str) {
         .replace(/'/g, '&#039;')
         .replace(/`/g, '&#96;')
         .replace(/=/g, '&#61;')
+        .replace(/\{/g, '&#123;')
+        .replace(/\}/g, '&#125;')
+}
+
+const DISALLOWED_PROPS = new Set(['__proto__', 'constructor', 'prototype'])
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**
  * Resolves nested object properties (e.g. "user.profile.name") with fallback to parent scope
  */
 function resolveProperty(obj, pathStr, fallbackObj = null) {
+    if (!pathStr || typeof pathStr !== 'string') return undefined
     const parts = pathStr.trim().split('.')
-    let current = obj
-    let found = true
     for (const part of parts) {
-        if (current === null || current === undefined || typeof current !== 'object' || !(part in current)) {
-            found = false
-            break
-        }
-        current = current[part]
+        if (DISALLOWED_PROPS.has(part)) return undefined
     }
-    if (found && current !== undefined) return current
+
+    const getVal = (target) => {
+        let current = target
+        for (const part of parts) {
+            if (current === null || current === undefined || typeof current !== 'object') {
+                return { found: false }
+            }
+            if (!Object.hasOwn(current, part)) {
+                return { found: false }
+            }
+            current = current[part]
+        }
+        return { found: true, val: current }
+    }
+
+    const primary = getVal(obj)
+    if (primary.found && primary.val !== undefined) return primary.val
 
     if (fallbackObj && typeof fallbackObj === 'object') {
-        let fallbackCurrent = fallbackObj
-        for (const part of parts) {
-            if (fallbackCurrent === null || fallbackCurrent === undefined || typeof fallbackCurrent !== 'object' || !(part in fallbackCurrent)) {
-                return undefined
-            }
-            fallbackCurrent = fallbackCurrent[part]
-        }
-        return fallbackCurrent
+        const fallback = getVal(fallbackObj)
+        if (fallback.found && fallback.val !== undefined) return fallback.val
     }
 
     return undefined
+}
+
+function findBlockMatch(content, openRegex, closeTag) {
+    const match = openRegex.exec(content)
+    if (!match) return null
+
+    const openTag = match[0]
+    const param = match[1]
+    const startIndex = match.index
+    let depth = 1
+    let currentIndex = startIndex + openTag.length
+
+    const nonCapturingOpenPattern = openRegex.source.replace(/\((?!\?:)/g, '(?:')
+    const tokenRegex = new RegExp(`(?:${nonCapturingOpenPattern})|(?:${escapeRegex(closeTag)})`, 'g')
+    tokenRegex.lastIndex = currentIndex
+
+    let tokenMatch
+    while ((tokenMatch = tokenRegex.exec(content)) !== null) {
+        const token = tokenMatch[0]
+        if (token === closeTag) {
+            depth--
+            if (depth === 0) {
+                const matchEnd = tokenRegex.lastIndex
+                const innerContent = content.slice(currentIndex, tokenMatch.index)
+                return {
+                    fullMatch: content.slice(startIndex, matchEnd),
+                    openTag,
+                    param,
+                    innerContent,
+                    startIndex,
+                    endIndex: matchEnd
+                }
+            }
+        } else {
+            depth++
+        }
+    }
+    return null
 }
 
 /**
@@ -143,62 +194,64 @@ export class TemplateEngine {
      * Evaluate simple conditionals: {{#if var}}...{{/if}}
      */
     processConditionals(content, data) {
-        const ifRegex = /\{\{#if\s+([a-zA-Z0-9_.]+)\}\}([\s\S]*?)\{\{\/if\}\}/g
-        return content.replace(ifRegex, (match, conditionVar, innerContent) => {
-            const value = resolveProperty(data, conditionVar)
-            return value ? innerContent : ''
-        })
+        let result = content
+        const openRegex = /\{\{#if\s+([a-zA-Z0-9_.]+)\}\}/
+        let block
+        while ((block = findBlockMatch(result, openRegex, '{{/if}}')) !== null) {
+            const value = resolveProperty(data, block.param)
+            const replacement = value ? this.processConditionals(block.innerContent, data) : ''
+            result = result.slice(0, block.startIndex) + replacement + result.slice(block.endIndex)
+        }
+        return result
     }
 
     /**
      * Evaluate array loops: {{#each list}}...{{/each}}
      */
     processLoops(content, data, assetMap = null) {
-        const eachRegex = /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}([\s\S]*?)\{\{\/each\}\}/g
-        return content.replace(eachRegex, (match, arrayPath, itemTemplate) => {
-            const list = resolveProperty(data, arrayPath)
-            if (!Array.isArray(list) || list.length === 0) return ''
-
-            return list.map((item) => {
-                let itemScope = {}
-                if (typeof item === 'object' && item !== null) {
-                    itemScope = { ...data, ...item }
-                } else {
-                    itemScope = { ...data, this: item }
-                }
-                let itemHtml = itemTemplate
-                itemHtml = this.processLoops(itemHtml, itemScope, assetMap)
-                itemHtml = this.processConditionals(itemHtml, itemScope)
-                if (assetMap) itemHtml = rewriteAssetUrls(itemHtml, assetMap)
-                itemHtml = this.processVariables(itemHtml, itemScope)
-                return itemHtml
-            }).join('')
-        })
+        let result = content
+        const openRegex = /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}/
+        let block
+        while ((block = findBlockMatch(result, openRegex, '{{/each}}')) !== null) {
+            const list = resolveProperty(data, block.param)
+            let replacement = ''
+            if (Array.isArray(list) && list.length > 0) {
+                replacement = list.map((item) => {
+                    let itemScope = {}
+                    if (typeof item === 'object' && item !== null) {
+                        itemScope = { ...data, ...item }
+                    } else {
+                        itemScope = { ...data, this: item }
+                    }
+                    let itemHtml = block.innerContent
+                    itemHtml = this.processLoops(itemHtml, itemScope, assetMap)
+                    itemHtml = this.processConditionals(itemHtml, itemScope)
+                    if (assetMap) itemHtml = rewriteAssetUrls(itemHtml, assetMap)
+                    itemHtml = this.processVariables(itemHtml, itemScope)
+                    return itemHtml
+                }).join('')
+            }
+            result = result.slice(0, block.startIndex) + replacement + result.slice(block.endIndex)
+        }
+        return result
     }
 
     /**
      * Interpolate variables: {{ title }} or {{{ rawHtml }}}
      */
     processVariables(content, data) {
-        // Unescaped variables: {{{ raw }}}
-        content = content.replace(
-            /\{\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}\}/g,
-            (match, varPath) => {
-                const val = resolveProperty(data, varPath)
+        const varRegex = /\{\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g
+        return content.replace(varRegex, (match, rawPath, escapedPath) => {
+            if (rawPath) {
+                const val = resolveProperty(data, rawPath)
                 return val !== undefined ? String(val) : ''
-            },
-        )
-
-        // Escaped variables: {{ title }}
-        content = content.replace(
-            /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
-            (match, varPath) => {
-                const val = resolveProperty(data, varPath)
+            }
+            if (escapedPath) {
+                const val = resolveProperty(data, escapedPath)
                 return val !== undefined ? escapeHtml(val) : ''
-            },
-        )
-
-        return content
+            }
+            return ''
+        })
     }
 
     /**

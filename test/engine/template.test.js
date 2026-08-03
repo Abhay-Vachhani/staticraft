@@ -96,6 +96,44 @@ describe('TemplateEngine loops', () => {
         assert.equal(await engine.render('{{#each x}}Y{{/each}}', { x: [] }), '')
         await fixture.cleanup()
     })
+
+    test('supports nested loops without tag corruption', async () => {
+        const { engine, fixture } = await makeEngine({})
+        const tpl = '{{#each groups}}<div>{{#each items}}<span>{{ this }}</span>{{/each}}</div>{{/each}}'
+        const out = await engine.render(tpl, {
+            groups: [{ items: ['a', 'b'] }, { items: ['c'] }]
+        })
+        assert.equal(out, '<div><span>a</span><span>b</span></div><div><span>c</span></div>')
+        await fixture.cleanup()
+    })
+
+    test('prevents prototype property resolution and pollution', async () => {
+        const { engine, fixture } = await makeEngine({})
+        assert.equal(await engine.render('{{ toString }}', {}), '')
+        assert.equal(await engine.render('{{ __proto__ }}', {}), '')
+        assert.equal(await engine.render('{{ constructor }}', {}), '')
+        await fixture.cleanup()
+    })
+
+    test('prevents double evaluation of user data containing template syntax', async () => {
+        const { engine, fixture } = await makeEngine({})
+        const tpl = '<h1>{{ title }}</h1>{{#each items}}<li>{{ name }}</li>{{/each}}'
+        const out = await engine.render(tpl, {
+            title: 'My Page',
+            items: [{ name: 'Item {{ secret }}' }]
+        })
+        assert.ok(out.includes('Item &#123;&#123; secret &#125;&#125;'))
+        await fixture.cleanup()
+    })
+
+    test('supports nested conditionals without tag corruption', async () => {
+        const { engine, fixture } = await makeEngine({})
+        const tpl = '{{#if outer}}{{#if inner}}YES{{/if}}{{/if}}'
+        assert.equal(await engine.render(tpl, { outer: true, inner: true }), 'YES')
+        assert.equal(await engine.render(tpl, { outer: true, inner: false }), '')
+        assert.equal(await engine.render(tpl, { outer: false, inner: true }), '')
+        await fixture.cleanup()
+    })
 })
 
 describe('TemplateEngine layout inheritance', () => {

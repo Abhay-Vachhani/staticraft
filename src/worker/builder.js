@@ -79,6 +79,7 @@ export class SiteBuilder {
             this.outputDir = path.resolve(this.rootDir, '.raft')
         }
         await this.discoverRoutes()
+        await this.processAssets()
         return this.config
     }
 
@@ -226,6 +227,11 @@ export class SiteBuilder {
                 let compiledHtml = await this.engine.render(rawContent, item.data || {}, this.assetMap)
 
                 const targetPath = path.join(this.outputDir, baseDir, String(paramValue), 'index.html')
+                const resolvedTarget = path.resolve(targetPath)
+                const absOutputDir = path.resolve(this.outputDir)
+                if (resolvedTarget !== absOutputDir && !resolvedTarget.startsWith(absOutputDir + path.sep)) {
+                    throw new Error(`[Staticraft Builder Security] Unsafe route path traversal: ${paramValue}`)
+                }
                 await atomicWriteFile(targetPath, compiledHtml)
                 count++
                 urls.push(`/${baseDir}/${paramValue}`)
@@ -343,17 +349,21 @@ export class SiteBuilder {
         const cleanRouteName = normalizedUrl.replace(/^\//, '')
         if (cleanRouteName) {
             const pagePath = path.join(this.srcDir, `${cleanRouteName}.html`)
-            try {
-                const rawContent = await fs.readFile(pagePath, 'utf-8')
-                let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
+            const resolvedPagePath = path.resolve(pagePath)
+            const absSrcDir = path.resolve(this.srcDir)
+            if (resolvedPagePath === absSrcDir || resolvedPagePath.startsWith(absSrcDir + path.sep)) {
+                try {
+                    const rawContent = await fs.readFile(resolvedPagePath, 'utf-8')
+                    let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
 
-                const targetPath = cleanRouteName === '404'
-                    ? path.join(this.outputDir, '404.html')
-                    : path.join(this.outputDir, cleanRouteName, 'index.html')
+                    const targetPath = cleanRouteName === '404'
+                        ? path.join(this.outputDir, '404.html')
+                        : path.join(this.outputDir, cleanRouteName, 'index.html')
 
-                await atomicWriteFile(targetPath, compiledHtml)
-                return
-            } catch (_) {}
+                    await atomicWriteFile(targetPath, compiledHtml)
+                    return
+                } catch (_) {}
+            }
         }
     }
 

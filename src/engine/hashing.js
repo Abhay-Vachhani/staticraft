@@ -41,7 +41,8 @@ function escapeRegex(str) {
  */
 export function rewriteAssetUrls(html, assetMap) {
     let updatedHtml = html
-    for (const [originalName, hashedName] of Object.entries(assetMap)) {
+    const sortedEntries = Object.entries(assetMap).sort((a, b) => b[0].length - a[0].length)
+    for (const [originalName, hashedName] of sortedEntries) {
         const escapedName = escapeRegex(originalName)
         const regex = new RegExp(`(["'/])(${escapedName})(["'?#])`, 'g')
         updatedHtml = updatedHtml.replace(regex, `$1${hashedName}$3`)

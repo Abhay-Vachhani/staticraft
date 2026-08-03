@@ -78,6 +78,7 @@ export async function runCli(args = process.argv.slice(2)) {
 
             if (raftExists) {
                 console.log(`[Staticraft] Found existing .raft/ build output. Skipping initial build.\n`)
+                await builder.processAssets()
             } else {
                 console.log(`[Staticraft] No existing build output found. Running initial build...\n`)
                 await builder.build()

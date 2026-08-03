@@ -60,4 +60,14 @@ describe('rewriteAssetUrls', () => {
         const out = rewriteAssetUrls(html, { 'logo(1).png': 'logo(1).hash.png' })
         assert.equal(out, '<img src="logo(1).hash.png">')
     })
+
+    test('prioritizes path-qualified keys over bare basename keys', () => {
+        const html = '<img src="images/logo.png">'
+        const assetMap = {
+            'logo.png': 'logo.11111111.png',
+            'images/logo.png': 'images/logo.22222222.png',
+        }
+        const out = rewriteAssetUrls(html, assetMap)
+        assert.equal(out, '<img src="images/logo.22222222.png">')
+    })
 })

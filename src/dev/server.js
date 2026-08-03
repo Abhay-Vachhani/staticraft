@@ -60,9 +60,10 @@ export class DevServer {
             })
             res.write('retry: 1000\n\n')
             this.liveReloadClients.add(res)
-            req.on('close', () => {
-                this.liveReloadClients.delete(res)
-            })
+            const removeClient = () => this.liveReloadClients.delete(res)
+            req.on('close', removeClient)
+            res.on('close', removeClient)
+            res.on('error', removeClient)
             return
         }
 
@@ -228,6 +229,9 @@ export class DevServer {
                     try {
                         if (typeof builder.clearCache === 'function') {
                             await builder.clearCache()
+                        }
+                        if (typeof builder.processAssets === 'function') {
+                            await builder.processAssets()
                         }
                         this.notifyReload()
                     } catch (err) {

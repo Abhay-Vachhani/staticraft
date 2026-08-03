@@ -126,6 +126,24 @@ describe('SiteBuilder.buildRoute', () => {
 
         await fixture.cleanup()
     })
+
+    test('throws security error if generatePaths produces path traversal param', async () => {
+        const fixture = await createFixture({
+            'src/app/items/[id]/page.html': 'Item page',
+            'src/app/items/[id]/server.js': `export default {
+                generatePaths: async () => [{ params: { id: '../../malicious' } }]
+            }\n`,
+        })
+        const builder = new SiteBuilder({ rootDir: fixture.dir })
+        await builder.loadConfig()
+
+        await assert.rejects(
+            () => builder.buildRoute('/items/:id', builder.routes['/items/:id']),
+            /Unsafe route path traversal/
+        )
+
+        await fixture.cleanup()
+    })
 })
 
 describe('SiteBuilder.renderOnDemand', () => {
