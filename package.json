@@ -28,6 +28,14 @@
     ],
     "author": "Abhay Vachhani",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Abhay-Vachhani/staticraft.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Abhay-Vachhani/staticraft/issues"
+    },
+    "homepage": "https://github.com/Abhay-Vachhani/staticraft#readme",
     "engines": {
         "node": ">=18.0.0"
     }
