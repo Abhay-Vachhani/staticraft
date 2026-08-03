@@ -10,7 +10,7 @@
 
 Unlike traditional SSR frameworks or standard SSGs, Staticraft fully decouples the **rendering lifecycle** from the **serving layer**.
 
-A private background worker fetches data, renders HTML files using atomic file swaps, and continuously refreshes pages on configurable timers — all without exposing any application logic to the public internet.
+A private background worker fetches data, renders HTML files using atomic file swaps, and continuously refreshes pages on configurable timers - all without exposing any application logic to the public internet.
 
 ```
 +-----------------------------------------------------------------+
@@ -50,10 +50,10 @@ A private background worker fetches data, renders HTML files using atomic file s
 - ⚡ **High-Performance Static Delivery**: Web servers serve pre-rendered HTML files directly from disk/cache with zero dynamic template execution overhead.
 - 🔄 **Atomic File Swapping**: Pages are written to a temporary staging file before an atomic `rename(2)` swap, preventing half-rendered pages or torn reads.
 - 📡 **Continuous Revalidation**: Routes are re-rendered on configurable timers (e.g., every 100s, 600s) via the background `ScheduleManager`. Permanent pages have no timer and are never auto-invalidated.
-- 💻 **Zero-Setup Dev Mode**: Built-in dev server on `localhost:4455` (auto port fallback) with live rebuild on file changes — no Nginx/Caddy needed locally.
+- 💻 **Zero-Setup Dev Mode**: Built-in dev server on `localhost:4455` (auto port fallback) with live rebuild on file changes - no Nginx/Caddy needed locally.
 - 🧩 **Component Architecture**: Reusable layouts, components, partials, slot injection, and automatic asset fingerprinting (e.g. `styles.f4603f46.css`).
-- 🚫 **Custom 404 Page**: Drop a `src/app/404.html` to define your own not-found error page — compiled automatically and served on any missing route.
-- 🗺️ **Sitemap & Robots**: `sitemap.xml` and `robots.txt` are generated automatically from every known route — on `staticraft build`, and on demand in `staticraft dev`.
+- 🚫 **Custom 404 Page**: Drop a `src/app/404.html` to define your own not-found error page - compiled automatically and served on any missing route.
+- 🗺️ **Sitemap & Robots**: `sitemap.xml` and `robots.txt` are generated automatically from every known route - on `staticraft build`, and on demand in `staticraft dev`.
 - 💰 **Low Cost & High Scalability**: Serve millions of requests with minimal infrastructure overhead.
 
 ---
@@ -64,13 +64,13 @@ A private background worker fetches data, renders HTML files using atomic file s
 Create modular HTML templates using layouts, components, slot injection, and dynamic data binding via `{{ }}` expressions.
 
 ### 2. Isolated Background Generator
-A daemon process running inside a private network. In production (`staticraft start`), it opens **no public HTTP ports** — it only writes files into `.raft/`.
+A daemon process running inside a private network. In production (`staticraft start`), it opens **no public HTTP ports** - it only writes files into `.raft/`.
 
 ### 3. Data Integration
 Routes pull dynamic content from external APIs, databases, CMS, or local data files via the `data()` and `generatePaths()` hooks in each route's colocated `server.js` file.
 
 ### 4. Timer-Based Revalidation
-Routes with a `revalidate` interval are re-fetched and re-rendered on a background timer by `ScheduleManager`. Routes without `revalidate` are **permanent** — compiled once and never auto-invalidated.
+Routes with a `revalidate` interval are re-fetched and re-rendered on a background timer by `ScheduleManager`. Routes without `revalidate` are **permanent** - compiled once and never auto-invalidated.
 
 ### 5. Safe File Publishing
 Pages are written to temporary files and atomically renamed to their final path, ensuring zero downtime or torn reads during updates.
@@ -111,13 +111,13 @@ staticraft build              # One-shot build: compile all pages to .raft/ and 
 ```bash
 npm test    # node's built-in test runner - no test framework dependency
 ```
-Tests live under `test/`, mirroring `src/`'s structure, and run entirely against throwaway temp-directory fixtures — they never touch this repo's own `src/`, `.raft/`, or `staticraft.config.js`.
+Tests live under `test/`, mirroring `src/`'s structure, and run entirely against throwaway temp-directory fixtures - they never touch this repo's own `src/`, `.raft/`, or `staticraft.config.js`.
 
 ---
 
-## ⚙️ Configuration — `staticraft.config.js`
+## ⚙️ Configuration - `staticraft.config.js`
 
-This file holds only global build settings — no route or data logic lives here:
+This file holds only global build settings - no route or data logic lives here:
 
 ```js
 export default {
@@ -133,13 +133,13 @@ export default {
 | `defaultExpiry` | Default CDN cache expiry. |
 | `siteUrl` | Absolute origin used to build `sitemap.xml`. Omit to skip sitemap generation entirely. |
 
-## 🗺️ Routing — file-based, colocated `server.js`
+## 🗺️ Routing - file-based, colocated `server.js`
 
-Every route is defined by where its files live under `src/app/` — Staticraft's own engine (`src/engine`, `src/worker`, `src/dev`, `src/cli.js`) lives outside of it, so a route or asset can never collide with or accidentally expose engine internals:
+Every route is defined by where its files live under `src/app/` - Staticraft's own engine (`src/engine`, `src/worker`, `src/dev`, `src/cli.js`) lives outside of it, so a route or asset can never collide with or accidentally expose engine internals:
 
-- **A folder containing `page.html`** is a route. The folder path (relative to `src/app/`) becomes the URL, and `[param]` segments become dynamic params — e.g. `src/app/products/[id]/page.html` → `/products/:id`. `src/app/page.html` itself is the root route, `/`.
+- **A folder containing `page.html`** is a route. The folder path (relative to `src/app/`) becomes the URL, and `[param]` segments become dynamic params - e.g. `src/app/products/[id]/page.html` → `/products/:id`. `src/app/page.html` itself is the root route, `/`.
 - **A sibling `server.js`** in that same folder is optional and supplies `data`, `generatePaths`, and `revalidate`.
-- **A bare `name.html`** with no folder is a purely static page (no data/revalidate possible) — e.g. `src/app/about.html` → `/about`.
+- **A bare `name.html`** with no folder is a purely static page (no data/revalidate possible) - e.g. `src/app/about.html` → `/about`.
 
 ```js
 // src/app/products/[id]/server.js
@@ -169,7 +169,7 @@ export default {
 }
 ```
 
-Only need one prebuilt page per request and no full-build step? A dynamic route can define `data()` alone with no `generatePaths()` — every id is accepted and fetched on demand, but `staticraft build`/`start` won't prebuild any pages for it up front.
+Only need one prebuilt page per request and no full-build step? A dynamic route can define `data()` alone with no `generatePaths()` - every id is accepted and fetched on demand, but `staticraft build`/`start` won't prebuild any pages for it up front.
 
 ```js
 // src/app/server.js - colocated with src/app/page.html, the root route "/"
@@ -182,7 +182,7 @@ export default {
 }
 ```
 
-`src/app/about.html` needs no `server.js` at all — it's rendered once, permanently, with no data.
+`src/app/about.html` needs no `server.js` at all - it's rendered once, permanently, with no data.
 
 ### Route Types
 
@@ -194,7 +194,7 @@ export default {
 ### Cache & Revalidation
 
 - Routes with `revalidate: N` are refreshed every `N` seconds by the background scheduler.
-- Routes without `revalidate` are **permanent** — compiled once and left unchanged until next full build.
+- Routes without `revalidate` are **permanent** - compiled once and left unchanged until next full build.
 - Default CDN cache expiry: `max-age=31536000, immutable` (1 Year).
 
 ---
@@ -229,7 +229,7 @@ my-site/
     └── 404.html            # Compiled from src/app/404.html
 ```
 
-`src/app/` is the only directory Staticraft ever reads routes/assets from — it never touches anything outside it (its own engine code lives entirely separately), so a route or static file in your project can never collide with or accidentally expose Staticraft's internals.
+`src/app/` is the only directory Staticraft ever reads routes/assets from - it never touches anything outside it (its own engine code lives entirely separately), so a route or static file in your project can never collide with or accidentally expose Staticraft's internals.
 
 ---
 
@@ -247,7 +247,7 @@ Create `src/app/404.html` using your site layout:
 </section>
 ```
 
-Staticraft compiles it to `.raft/404.html` — a **system error template**, not a browseable route. Visiting `/404` directly returns a proper HTTP `404` status.
+Staticraft compiles it to `.raft/404.html` - a **system error template**, not a browseable route. Visiting `/404` directly returns a proper HTTP `404` status.
 
 For Nginx production config:
 ```nginx
@@ -260,10 +260,10 @@ error_page 404 /404.html;
 
 `staticraft build` (and `staticraft start`'s initial build) always writes `.raft/robots.txt`, and writes `.raft/sitemap.xml` too if `siteUrl` is set in `staticraft.config.js`. `staticraft dev` generates both lazily on first request, same as any other on-demand page.
 
-- **`sitemap.xml`** lists every page Staticraft knows about — every static route, every enumerated dynamic (`generatePaths()`) page, and every flat static HTML page — excluding `404`. In a full build this comes from the same data as the build manifest, so it can't drift from what's really in `.raft/`.
+- **`sitemap.xml`** lists every page Staticraft knows about - every static route, every enumerated dynamic (`generatePaths()`) page, and every flat static HTML page - excluding `404`. In a full build this comes from the same data as the build manifest, so it can't drift from what's really in `.raft/`.
 - **`robots.txt`** is always generated (`Allow: /`), with a `Sitemap:` line added automatically when `siteUrl` is configured.
 
-In dev mode, requesting `/sitemap.xml` still has to enumerate every dynamic route via its `generatePaths()` (there's no way to list every page without it), so the first request can be as slow as a full build — but it doesn't render the individual pages themselves, and the result is cached to disk like any other on-demand route until the next file change.
+In dev mode, requesting `/sitemap.xml` still has to enumerate every dynamic route via its `generatePaths()` (there's no way to list every page without it), so the first request can be as slow as a full build - but it doesn't render the individual pages themselves, and the result is cached to disk like any other on-demand route until the next file change.
 
 Without `siteUrl` configured, `sitemap.xml` is skipped (with a console warning) since sitemap URLs must be absolute.
 
@@ -307,15 +307,15 @@ Without `siteUrl` configured, `sitemap.xml` is skipped (with a console warning) 
 
 ---
 
-## 🧪 Demo Site — KRAFT
+## 🧪 Demo Site - KRAFT
 
 The `src/app/` directory contains **KRAFT**, a demo studio objects catalog used to demonstrate Staticraft's capabilities:
 
-- **Home** (`/`) — Hero section, revalidated every 600s.
-- **Collection** (`/products`) — Product listing, revalidated every 300s.
-- **Product Detail** (`/products/:id`) — 194 individual product pages from the [DummyJSON API](https://dummyjson.com/docs/products), each revalidated every 3600s.
-- **About** (`/about`) — Permanent static page with no revalidation.
-- **404** — Custom error page served on any missing route.
+- **Home** (`/`) - Hero section, revalidated every 600s.
+- **Collection** (`/products`) - Product listing, revalidated every 300s.
+- **Product Detail** (`/products/:id`) - 194 individual product pages from the [DummyJSON API](https://dummyjson.com/docs/products), each revalidated every 3600s.
+- **About** (`/about`) - Permanent static page with no revalidation.
+- **404** - Custom error page served on any missing route.
 
 > This demo site is illustrative only. Replace the `src/app/` route folders (`page.html` + `server.js`) with your own project content.
 
