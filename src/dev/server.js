@@ -58,22 +58,30 @@ export class DevServer {
 
         let resolvedPath = null
 
-        // /404 is a system error template, not a routable page — block direct access
-        const is404Route = safePath === '/404' || safePath === '/404/'
-        if (!is404Route) {
-            for (const cand of candidatePaths) {
-                const absCand = path.resolve(cand)
-                // Boundary check: candidate path MUST be inside staticDir
-                if (!absCand.startsWith(absStaticDir)) {
-                    continue
+        const findResolvedPath = async () => {
+            const is404Route = safePath === '/404' || safePath === '/404/'
+            if (!is404Route) {
+                for (const cand of candidatePaths) {
+                    const absCand = path.resolve(cand)
+                    if (!absCand.startsWith(absStaticDir)) continue
+                    try {
+                        const stat = await fs.stat(absCand)
+                        if (stat.isFile()) return absCand
+                    } catch (_) {}
                 }
-                try {
-                    const stat = await fs.stat(absCand)
-                    if (stat.isFile()) {
-                        resolvedPath = absCand
-                        break
-                    }
-                } catch (_) {}
+            }
+            return null
+        }
+
+        resolvedPath = await findResolvedPath()
+
+        // Lazy On-Demand Rendering: Compile page on request if missing from .raft/
+        if (!resolvedPath && this.builder && typeof this.builder.renderOnDemand === 'function') {
+            try {
+                await this.builder.renderOnDemand(reqUrl)
+                resolvedPath = await findResolvedPath()
+            } catch (err) {
+                console.error(`[Staticraft Dev Server] Error compiling ${reqUrl} on demand:`, err.message)
             }
         }
 
@@ -154,12 +162,14 @@ export class DevServer {
             this.watcher = watch(builder.srcDir, { recursive: true }, (eventType, filename) => {
                 if (!filename || filename.startsWith('.') || filename.includes('.tmp')) return
 
-                // Debounce rebuilds to prevent duplicate builds on rapid edits
+                // Debounce invalidations to prevent duplicate work on rapid edits
                 if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
                 this.rebuildTimer = setTimeout(async () => {
                     console.log(`\n[Staticraft Watcher] File changed: src/${filename}`)
                     try {
-                        await builder.build()
+                        if (typeof builder.clearCache === 'function') {
+                            await builder.clearCache()
+                        }
                     } catch (err) {
                         console.error('[Staticraft Watcher Error]', err.message)
                     }
@@ -173,9 +183,11 @@ export class DevServer {
     async start(builder = null) {
         this.builder = builder
 
-        // Trigger initial build
+        // Initialize empty .raft directory for instant server startup
         if (builder) {
-            await builder.build()
+            if (typeof builder.clearCache === 'function') {
+                await builder.clearCache()
+            }
             this.startWatcher(builder)
         }
 

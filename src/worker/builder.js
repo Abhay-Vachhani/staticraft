@@ -148,6 +148,99 @@ export class SiteBuilder {
         return { count, routeType, revalidate: revalidateVal }
     }
 
+    async clearCache() {
+        this.config = null
+        this.assetMap = {}
+        try {
+            await fs.rm(this.outputDir, { recursive: true, force: true })
+            await fs.mkdir(this.outputDir, { recursive: true })
+        } catch (_) {}
+    }
+
+    async renderOnDemand(reqUrl) {
+        if (!this.config) await this.loadConfig()
+        if (Object.keys(this.assetMap).length === 0) {
+            await this.processAssets()
+        }
+
+        const normalizedUrl = reqUrl.split('?')[0].replace(/\/$/, '') || '/'
+        const routes = this.config.routes || {}
+
+        // 1. Check exact match in configured routes (e.g. '/' or '/products')
+        if (routes[normalizedUrl]) {
+            await this.buildRoute(normalizedUrl, routes[normalizedUrl])
+            return
+        }
+
+        // 2. Check dynamic SSG routes (e.g. '/products/42' matching '/products/:id')
+        for (const [routePattern, routeConfig] of Object.entries(routes)) {
+            if (routePattern.includes(':')) {
+                const baseDir = routePattern.split('/:')[0]
+                const paramMatch = routePattern.match(/:([a-zA-Z0-9_]+)/)
+                const paramKey = paramMatch ? paramMatch[1] : 'id'
+
+                if (normalizedUrl.startsWith(baseDir + '/')) {
+                    const reqParamValue = normalizedUrl.slice(baseDir.length + 1)
+                    
+                    const templateCandidates = [
+                        path.join(this.srcDir, baseDir.replace(/^\//, ''), `[${paramKey}].html`),
+                        path.join(this.srcDir, baseDir.replace(/^\//, ''), '[id].html'),
+                        path.join(this.srcDir, baseDir.replace(/^\//, ''), '[slug].html'),
+                        path.join(this.srcDir, baseDir.replace(/^\//, ''), 'detail.html')
+                    ]
+
+                    let rawContent = ''
+                    for (const cand of templateCandidates) {
+                        try {
+                            rawContent = await fs.readFile(cand, 'utf-8')
+                            break
+                        } catch (_) {}
+                    }
+
+                    if (rawContent) {
+                        let itemData = {}
+                        if (routeConfig.generatePaths) {
+                            try {
+                                const paths = await routeConfig.generatePaths()
+                                const found = paths.find((p) => String(p.params?.[paramKey] || p.params?.id || p.params?.slug) === String(reqParamValue))
+                                if (found) itemData = found.data || {}
+                            } catch (_) {}
+                        } else if (routeConfig.data) {
+                            try {
+                                itemData = await routeConfig.data({ params: { [paramKey]: reqParamValue } })
+                            } catch (_) {}
+                        }
+
+                        let compiledHtml = await this.engine.render(rawContent, itemData)
+                        compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+
+                        const targetPath = path.join(this.outputDir, baseDir.replace(/^\//, ''), String(reqParamValue), 'index.html')
+                        await atomicWriteFile(targetPath, compiledHtml)
+                        return
+                    }
+                }
+            }
+        }
+
+        // 3. Unconfigured static HTML pages (e.g. '/about' -> src/about.html or '/404' -> src/404.html)
+        const cleanRouteName = normalizedUrl.replace(/^\//, '')
+        if (cleanRouteName) {
+            const pagePath = path.join(this.srcDir, `${cleanRouteName}.html`)
+            try {
+                const rawContent = await fs.readFile(pagePath, 'utf-8')
+                let compiledHtml = await this.engine.render(rawContent, {})
+                compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
+
+                const targetPath = cleanRouteName === '404'
+                    ? path.join(this.outputDir, '404.html')
+                    : path.join(this.outputDir, cleanRouteName, 'index.html')
+
+                await atomicWriteFile(targetPath, compiledHtml)
+                return
+            } catch (_) {}
+        }
+    }
+
     async build() {
         console.log(`[Staticraft Builder] Starting build...`)
         const startTime = Date.now()
