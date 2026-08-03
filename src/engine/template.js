@@ -12,19 +12,38 @@ export function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;')
+        .replace(/`/g, '&#96;')
+        .replace(/=/g, '&#61;')
 }
 
 /**
- * Resolves nested object properties (e.g. "user.profile.name")
+ * Resolves nested object properties (e.g. "user.profile.name") with fallback to parent scope
  */
-function resolveProperty(obj, pathStr) {
+function resolveProperty(obj, pathStr, fallbackObj = null) {
     const parts = pathStr.trim().split('.')
     let current = obj
+    let found = true
     for (const part of parts) {
-        if (current === null || current === undefined) return undefined
+        if (current === null || current === undefined || typeof current !== 'object' || !(part in current)) {
+            found = false
+            break
+        }
         current = current[part]
     }
-    return current
+    if (found && current !== undefined) return current
+
+    if (fallbackObj && typeof fallbackObj === 'object') {
+        let fallbackCurrent = fallbackObj
+        for (const part of parts) {
+            if (fallbackCurrent === null || fallbackCurrent === undefined || typeof fallbackCurrent !== 'object' || !(part in fallbackCurrent)) {
+                return undefined
+            }
+            fallbackCurrent = fallbackCurrent[part]
+        }
+        return fallbackCurrent
+    }
+
+    return undefined
 }
 
 /**
@@ -46,6 +65,7 @@ export class TemplateEngine {
                 '[Staticraft Engine] Max component nesting depth exceeded',
             )
 
+        const absTemplatesDir = path.resolve(this.templatesDir)
         const componentRegex = /\{\{\s*component\s+["']([^"']+)["']\s*\}\}/g
         let match
         let result = content
@@ -55,20 +75,26 @@ export class TemplateEngine {
             const compPath = match[1]
             const fullPath = path.resolve(this.templatesDir, compPath)
 
+            if (!fullPath.startsWith(absTemplatesDir)) {
+                console.warn(`[Staticraft Engine] Forbidden component path: ${compPath}`)
+                result = result.replace(fullTag, () => `<!-- Forbidden component: ${compPath} -->`)
+                continue
+            }
+
             try {
                 let compContent = await fs.readFile(fullPath, 'utf-8')
                 compContent = await this.processComponents(
                     compContent,
                     depth + 1,
                 )
-                result = result.replace(fullTag, compContent)
+                result = result.replace(fullTag, () => compContent)
             } catch (err) {
                 console.warn(
                     `[Staticraft Engine] Component missing: ${compPath}`,
                 )
                 result = result.replace(
                     fullTag,
-                    `<!-- Missing component: ${compPath} -->`,
+                    () => `<!-- Missing component: ${compPath} -->`,
                 )
             }
         }
@@ -87,16 +113,22 @@ export class TemplateEngine {
 
         const layoutTag = match[0]
         const layoutPath = match[1]
+        const absTemplatesDir = path.resolve(this.templatesDir)
         const fullPath = path.resolve(this.templatesDir, layoutPath)
 
         const pageBody = content.replace(layoutTag, '')
 
+        if (!fullPath.startsWith(absTemplatesDir)) {
+            console.warn(`[Staticraft Engine] Forbidden layout path: ${layoutPath}`)
+            return pageBody
+        }
+
         try {
             let layoutContent = await fs.readFile(fullPath, 'utf-8')
             if (layoutContent.includes('{{ slot }}')) {
-                return layoutContent.replace('{{ slot }}', pageBody)
+                return layoutContent.replace('{{ slot }}', () => pageBody)
             } else if (layoutContent.includes('{{ body }}')) {
-                return layoutContent.replace('{{ body }}', pageBody)
+                return layoutContent.replace('{{ body }}', () => pageBody)
             } else {
                 return layoutContent + pageBody
             }
@@ -127,13 +159,16 @@ export class TemplateEngine {
             if (!Array.isArray(list) || list.length === 0) return ''
 
             return list.map((item) => {
-                let itemHtml = itemTemplate
+                let itemScope = {}
                 if (typeof item === 'object' && item !== null) {
-                    // Replace item properties inside loop
-                    itemHtml = this.processVariables(itemHtml, item)
+                    itemScope = { ...data, ...item }
                 } else {
-                    itemHtml = itemHtml.replace(/\{\{\s*this\s*\}\}/g, escapeHtml(item))
+                    itemScope = { ...data, this: item }
                 }
+                let itemHtml = itemTemplate
+                itemHtml = this.processLoops(itemHtml, itemScope)
+                itemHtml = this.processConditionals(itemHtml, itemScope)
+                itemHtml = this.processVariables(itemHtml, itemScope)
                 return itemHtml
             }).join('')
         })

@@ -61,14 +61,20 @@ export class SiteBuilder {
         for (const assetPath of assetFiles) {
             const relativePath = path.relative(this.srcDir, assetPath)
             const hashedAsset = await generateHashedAsset(assetPath)
+            const dirName = path.dirname(relativePath)
+            const hashedRelPath = dirName === '.' 
+                ? hashedAsset.hashedFileName 
+                : path.join(dirName, hashedAsset.hashedFileName)
+
             const hashedTargetPath = path.join(
                 this.outputDir,
-                path.dirname(relativePath),
+                dirName,
                 hashedAsset.hashedFileName
             )
 
             await atomicWriteBuffer(hashedTargetPath, hashedAsset.content)
             this.assetMap[path.basename(assetPath)] = hashedAsset.hashedFileName
+            this.assetMap[relativePath] = hashedRelPath
         }
     }
 
@@ -92,7 +98,11 @@ export class SiteBuilder {
         } else if (routePattern.includes(':')) {
             routeType = 'Dynamic (SSG)'
             const baseDir = routePattern.split('/:')[0].replace(/^\//, '')
+            const paramMatch = routePattern.match(/:([a-zA-Z0-9_]+)/)
+            const paramKey = paramMatch ? paramMatch[1] : 'id'
+
             const templateCandidates = [
+                path.join(this.srcDir, baseDir, `[${paramKey}].html`),
                 path.join(this.srcDir, baseDir, '[id].html'),
                 path.join(this.srcDir, baseDir, '[slug].html'),
                 path.join(this.srcDir, baseDir, 'detail.html')
@@ -110,11 +120,13 @@ export class SiteBuilder {
 
             const paths = routeConfig.generatePaths ? await routeConfig.generatePaths() : []
             for (const item of paths) {
-                const paramValue = item.params.id || item.params.slug
+                const paramValue = item.params ? (item.params[paramKey] || item.params.id || item.params.slug) : undefined
+                if (!paramValue) continue
+
                 let compiledHtml = await this.engine.render(rawContent, item.data || {})
                 compiledHtml = rewriteAssetUrls(compiledHtml, this.assetMap)
 
-                const targetPath = path.join(this.outputDir, baseDir, paramValue, 'index.html')
+                const targetPath = path.join(this.outputDir, baseDir, String(paramValue), 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
                 count++
             }
@@ -141,7 +153,6 @@ export class SiteBuilder {
         const startTime = Date.now()
 
         await this.loadConfig()
-        await fs.rm(this.outputDir, { recursive: true, force: true })
         await fs.mkdir(this.outputDir, { recursive: true })
         await this.processAssets()
 

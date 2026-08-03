@@ -12,9 +12,12 @@ const MIME_TYPES = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon',
-    '.woff2': 'font/woff2'
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.wasm': 'application/wasm'
 }
 
 export class DevServer {
@@ -33,18 +36,24 @@ export class DevServer {
     async handleRequest(req, res) {
         const startTime = Date.now()
         let reqUrl = req.url.split('?')[0]
-        const safePath = path.normalize(reqUrl).replace(/^(\.\.[\/\\])+/, '')
+        let decodedUrl = reqUrl
+        try {
+            decodedUrl = decodeURIComponent(reqUrl)
+        } catch (_) {}
+
+        const safePath = path.normalize(decodedUrl).replace(/^(\.\.[\/\\])+/, '')
+        const absStaticDir = path.resolve(this.staticDir)
         
         let candidatePaths = []
 
         if (safePath === '/' || safePath === '\\') {
-            candidatePaths.push(path.join(this.staticDir, 'index.html'))
+            candidatePaths.push(path.join(absStaticDir, 'index.html'))
         } else if (!path.extname(safePath)) {
-            candidatePaths.push(path.join(this.staticDir, safePath, 'index.html'))
-            candidatePaths.push(path.join(this.staticDir, `${safePath}.html`))
-            candidatePaths.push(path.join(this.staticDir, safePath))
+            candidatePaths.push(path.join(absStaticDir, safePath, 'index.html'))
+            candidatePaths.push(path.join(absStaticDir, `${safePath}.html`))
+            candidatePaths.push(path.join(absStaticDir, safePath))
         } else {
-            candidatePaths.push(path.join(this.staticDir, safePath))
+            candidatePaths.push(path.join(absStaticDir, safePath))
         }
 
         let resolvedPath = null
@@ -53,10 +62,15 @@ export class DevServer {
         const is404Route = safePath === '/404' || safePath === '/404/'
         if (!is404Route) {
             for (const cand of candidatePaths) {
+                const absCand = path.resolve(cand)
+                // Boundary check: candidate path MUST be inside staticDir
+                if (!absCand.startsWith(absStaticDir)) {
+                    continue
+                }
                 try {
-                    const stat = await fs.stat(cand)
+                    const stat = await fs.stat(absCand)
                     if (stat.isFile()) {
-                        resolvedPath = cand
+                        resolvedPath = absCand
                         break
                     }
                 } catch (_) {}
