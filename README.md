@@ -100,11 +100,15 @@ npx staticraft dev
 
 ### Command Reference:
 ```bash
-staticraft dev                # Start dev server on http://localhost:4455 (live rebuild)
-staticraft dev --port 5000    # Custom port override
-staticraft dev --host         # Bind dev server to 0.0.0.0 for local network access
-staticraft start              # Run production background worker (NO HTTP server)
-staticraft build              # One-shot build: compile all pages to .raft/ and exit
+staticraft init [dir]           # Scaffold a new project interactively (defaults to app/)
+staticraft init [dir] -y        # Scaffold non-interactively with default options
+staticraft init [dir] --no-src  # Scaffold using app/ structure (default)
+staticraft init [dir] --src     # Scaffold using src/app/ structure
+staticraft dev                  # Start dev server on http://localhost:4455 (live rebuild)
+staticraft dev --port 5000      # Custom port override
+staticraft dev --host           # Bind dev server to 0.0.0.0 for local network access
+staticraft start                # Run production background worker (NO HTTP server)
+staticraft build                # One-shot build: compile all pages to .raft/ and exit
 ```
 
 ### Running the Test Suite
@@ -124,6 +128,7 @@ export default {
     outputDir: '.raft',
     defaultExpiry: '1y',
     siteUrl: 'https://example.com', // Optional - enables sitemap.xml generation
+    srcDir: 'app',                  // Optional - defaults to app/ or src/app/
 }
 ```
 
@@ -132,12 +137,13 @@ export default {
 | `outputDir` | Where compiled pages are written (default `.raft`). |
 | `defaultExpiry` | Default CDN cache expiry. |
 | `siteUrl` | Absolute origin used to build `sitemap.xml`. Omit to skip sitemap generation entirely. |
+| `srcDir` | Application source directory (default auto-detects `app/` or `src/app/`). |
 
 ## 🗺️ Routing - file-based, colocated `server.js`
 
-Every route is defined by where its files live under `src/app/` - Staticraft's own engine (`src/engine`, `src/worker`, `src/dev`, `src/cli.js`) lives outside of it, so a route or asset can never collide with or accidentally expose engine internals:
+Every route is defined by where its files live under `app/` (or `src/app/` if configured) - Staticraft's own engine (`src/engine`, `src/worker`, `src/dev`, `src/cli.js`) lives outside of it, so a route or asset can never collide with or accidentally expose engine internals:
 
-- **A folder containing `page.html`** is a route. The folder path (relative to `src/app/`) becomes the URL, and `[param]` segments become dynamic params - e.g. `src/app/products/[id]/page.html` → `/products/:id`. `src/app/page.html` itself is the root route, `/`.
+- **A folder containing `page.html`** is a route. The folder path (relative to `app/`) becomes the URL, and `[param]` segments become dynamic params - e.g. `app/products/[id]/page.html` → `/products/:id`. `app/page.html` itself is the root route, `/`.
 - **A sibling `server.js`** in that same folder is optional and supplies `data`, `generatePaths`, and `revalidate`.
 - **A bare `name.html`** with no folder is a purely static page (no data/revalidate possible) - e.g. `src/app/about.html` → `/about`.
 

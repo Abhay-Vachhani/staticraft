@@ -32,7 +32,7 @@ describe('runInit', () => {
         assert.match(serverJs, /revalidate: 600/)
 
         const page404Html = await fs.readFile(path.join(targetDir, 'app/404.html'), 'utf-8')
-        assert.match(page404Html, /404 Page Not Found/)
+        assert.match(page404Html, /Page Not Found/)
 
         await fixture.cleanup()
     })

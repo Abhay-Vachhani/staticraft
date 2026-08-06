@@ -6,7 +6,7 @@ import { DevServer } from './dev/server.js'
 import { ScheduleManager } from './worker/schedule.js'
 import { runInit } from './init.js'
 
-export const VERSION = '0.1.1'
+export const VERSION = '0.1.2'
 
 export function showBanner() {
     console.log(`
