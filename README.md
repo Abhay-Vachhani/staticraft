@@ -2,7 +2,12 @@
 
 > **Generate privately. Serve statically. Update continuously.**
 
-**Staticraft (Static + Raft)** is a security-first, event-driven static site engine that renders HTML from templates and live data sources in an isolated background process, then serves pre-built pages via high-performance static file servers (Nginx, Caddy, or CDNs).
+[![npm version](https://img.shields.io/npm/v/staticraft?color=6366f1)](https://npmjs.com/package/staticraft)
+[![Official Documentation](https://img.shields.io/badge/Docs-Live-10b981)](https://abhay-vachhani.github.io/staticraft/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+📖 **Official Documentation**: [https://abhay-vachhani.github.io/staticraft/](https://abhay-vachhani.github.io/staticraft/)  
+📦 **npm Package**: [https://npmjs.com/package/staticraft](https://npmjs.com/package/staticraft)
 
 ---
 
