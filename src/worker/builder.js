@@ -180,8 +180,16 @@ export class SiteBuilder {
         const assetFiles = allFiles.filter((f) => {
             const isRouteServerFile = path.basename(f) === 'server.js'
             const isGeneratedWellKnown = path.basename(f) === 'robots.txt' || path.basename(f) === 'sitemap.xml'
-            return !f.endsWith('.html') && !path.basename(f).startsWith('.') && !isRouteServerFile && !isGeneratedWellKnown
+            const isRootTxtFile = f.endsWith('.txt') && path.dirname(f) === this.srcDir
+            return !f.endsWith('.html') && !path.basename(f).startsWith('.') && !isRouteServerFile && !isGeneratedWellKnown && !isRootTxtFile
         })
+
+        const rootTxtFiles = allFiles.filter((f) => f.endsWith('.txt') && path.dirname(f) === this.srcDir && path.basename(f) !== 'robots.txt')
+        for (const txtFile of rootTxtFiles) {
+            const fileName = path.basename(txtFile)
+            const content = await fs.readFile(txtFile)
+            await atomicWriteBuffer(path.join(this.outputDir, fileName), content)
+        }
 
         this.assetMap = {}
         const basenameOwners = new Map() // basename -> owning relativePath, or null once ambiguous
