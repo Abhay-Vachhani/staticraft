@@ -171,4 +171,28 @@ describe('DevServer', () => {
         await server.stop()
         await fixture.cleanup()
     })
+
+    test('dev server strips basePath prefix from requests when siteUrl contains a subpath', async () => {
+        const { server, fixture, port } = await startServerWithBuilder({
+            'staticraft.config.js': 'export default { outputDir: ".raft", srcDir: "app", siteUrl: "https://example.com/subpath" }\n',
+            'app/page.html': '<html><head><link rel="stylesheet" href="/styles.css"></head><body>Home Page</body></html>',
+            'app/styles.css': 'body{color:blue}',
+        })
+
+        const resHome = await get(port, '/subpath/')
+        assert.equal(resHome.statusCode, 200)
+        assert.match(resHome.body, /Home Page/)
+        assert.match(resHome.body, /\/subpath\/styles\.[0-9a-f]{8}\.css/)
+
+        const cssMatch = resHome.body.match(/href="([^"]+)"/)
+        assert.ok(cssMatch)
+        const cssPath = cssMatch[1]
+
+        const resCss = await get(port, cssPath)
+        assert.equal(resCss.statusCode, 200)
+        assert.equal(resCss.body, 'body{color:blue}')
+
+        await server.stop()
+        await fixture.cleanup()
+    })
 })

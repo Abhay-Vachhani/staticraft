@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
-import { hashContent, generateHashedAsset, rewriteAssetUrls } from '../../src/engine/hashing.js'
+import { hashContent, generateHashedAsset, rewriteAssetUrls, rewriteBasePaths } from '../../src/engine/hashing.js'
 import { createFixture } from '../helpers/fixture.js'
 
 describe('hashContent', () => {
@@ -48,6 +48,12 @@ describe('rewriteAssetUrls', () => {
         assert.equal(out, '<link href="/styles.abc12345.css"><script src="app.def67890.js"></script>')
     })
 
+    test('prefixes asset URLs with basePath when specified', () => {
+        const html = '<link href="/styles.css">'
+        const out = rewriteAssetUrls(html, { 'styles.css': 'styles.abc12345.css' }, '/staticraft')
+        assert.equal(out, '<link href="/staticraft/styles.abc12345.css">')
+    })
+
     test('does not touch unrelated substrings', () => {
         const html = '<p>not-styles.css-related</p><link href="/styles.css">'
         const out = rewriteAssetUrls(html, { 'styles.css': 'styles.hash.css' })
@@ -71,3 +77,24 @@ describe('rewriteAssetUrls', () => {
         assert.equal(out, '<img src="images/logo.22222222.png">')
     })
 })
+
+describe('rewriteBasePaths', () => {
+    test('prefixes root-relative href and src attributes with basePath', () => {
+        const html = '<a href="/docs">Docs</a><a href="/">Home</a><img src="/img/logo.png">'
+        const out = rewriteBasePaths(html, '/staticraft')
+        assert.equal(out, '<a href="/staticraft/docs">Docs</a><a href="/staticraft/">Home</a><img src="/staticraft/img/logo.png">')
+    })
+
+    test('does not double-prefix URLs that already start with basePath', () => {
+        const html = '<a href="/staticraft/docs">Docs</a>'
+        const out = rewriteBasePaths(html, '/staticraft')
+        assert.equal(out, '<a href="/staticraft/docs">Docs</a>')
+    })
+
+    test('leaves absolute, relative, or hash URLs untouched', () => {
+        const html = '<a href="https://github.com">GH</a><a href="#section">Sec</a>'
+        const out = rewriteBasePaths(html, '/staticraft')
+        assert.equal(out, '<a href="https://github.com">GH</a><a href="#section">Sec</a>')
+    })
+})
+

@@ -81,6 +81,7 @@ export async function runCli(args = process.argv.slice(2)) {
 
         case 'dev':
             showBanner()
+            builder.isDev = true
             const devServer = new DevServer({
                 port: options.port,
                 host: options.host

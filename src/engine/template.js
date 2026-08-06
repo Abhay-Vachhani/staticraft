@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { rewriteAssetUrls } from './hashing.js'
+import { rewriteAssetUrls, rewriteBasePaths } from './hashing.js'
 
 /**
  * Contextual HTML Escaping for XSS protection
@@ -212,7 +212,7 @@ export class TemplateEngine {
     /**
      * Evaluate array loops: {{#each list}}...{{/each}}
      */
-    processLoops(content, data, assetMap = null) {
+    processLoops(content, data, assetMap = null, basePath = '') {
         let result = content
         const openRegex = /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}/
         let block
@@ -228,9 +228,10 @@ export class TemplateEngine {
                         itemScope = { ...data, this: item }
                     }
                     let itemHtml = block.innerContent
-                    itemHtml = this.processLoops(itemHtml, itemScope, assetMap)
+                    itemHtml = this.processLoops(itemHtml, itemScope, assetMap, basePath)
                     itemHtml = this.processConditionals(itemHtml, itemScope)
-                    if (assetMap) itemHtml = rewriteAssetUrls(itemHtml, assetMap)
+                    if (assetMap) itemHtml = rewriteAssetUrls(itemHtml, assetMap, basePath)
+                    if (basePath) itemHtml = rewriteBasePaths(itemHtml, basePath)
                     itemHtml = this.processVariables(itemHtml, itemScope)
                     return itemHtml
                 }).join('')
@@ -261,12 +262,13 @@ export class TemplateEngine {
     /**
      * Compile template file or string into final HTML
      */
-    async render(templateContent, data = {}, assetMap = null) {
+    async render(templateContent, data = {}, assetMap = null, basePath = '') {
         let html = await this.processLayout(templateContent)
         html = await this.processComponents(html)
-        html = this.processLoops(html, data, assetMap)
+        html = this.processLoops(html, data, assetMap, basePath)
         html = this.processConditionals(html, data)
-        if (assetMap) html = rewriteAssetUrls(html, assetMap)
+        if (assetMap) html = rewriteAssetUrls(html, assetMap, basePath)
+        if (basePath) html = rewriteBasePaths(html, basePath)
         html = this.processVariables(html, data)
         return html
     }

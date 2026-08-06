@@ -50,6 +50,12 @@ export class DevServer {
         const startTime = Date.now()
         let reqUrl = req.url.split('?')[0]
 
+        // Strip basePath prefix if present (e.g. /staticraft/styles.css -> /styles.css)
+        const basePath = this.builder?.basePath || ''
+        if (basePath && (reqUrl === basePath || reqUrl.startsWith(basePath + '/'))) {
+            reqUrl = reqUrl.slice(basePath.length) || '/'
+        }
+
         // Extensible Staticraft Dev SSE Event Stream endpoint
         if (reqUrl === '/__staticraft') {
             res.writeHead(200, {

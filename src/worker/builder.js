@@ -35,6 +35,7 @@ export class SiteBuilder {
     constructor(options = {}) {
         this.options = options
         this.rootDir = options.rootDir || process.cwd()
+        this.isDev = Boolean(options.isDev)
         this.srcDir = this.resolveSrcDir(options.srcDir)
         this.outputDir = options.outputDir || path.join(this.rootDir, '.raft')
         this.engine = new TemplateEngine({
@@ -44,7 +45,25 @@ export class SiteBuilder {
         this.config = null
         this.routes = null
         this.assetMap = {}
+        this.basePath = ''
         this.inflightPaths = new Map()
+    }
+
+    resolveBasePath(config) {
+        if (config?.basePath !== undefined) {
+            let bp = String(config.basePath).trim()
+            if (!bp || bp === '/') return ''
+            if (!bp.startsWith('/')) bp = '/' + bp
+            return bp.replace(/\/+$/, '')
+        }
+        if (!this.isDev && config?.siteUrl) {
+            try {
+                const u = new URL(config.siteUrl)
+                const pathname = u.pathname.replace(/\/+$/, '')
+                if (pathname && pathname !== '/') return pathname
+            } catch (_) {}
+        }
+        return ''
     }
 
     resolveSrcDir(optionsSrcDir) {
@@ -96,6 +115,7 @@ export class SiteBuilder {
             this.outputDir = path.resolve(this.rootDir, '.raft')
         }
         this.srcDir = this.resolveSrcDir(this.options?.srcDir)
+        this.basePath = this.resolveBasePath(this.config)
         this.engine.templatesDir = this.srcDir
         await this.discoverRoutes()
         await this.processAssets()
@@ -211,7 +231,7 @@ export class SiteBuilder {
             const pagePath = path.join(dir, 'page.html')
             const data = mod.data ? await mod.data() : {}
             const rawContent = await fs.readFile(pagePath, 'utf-8')
-            let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
+            let compiledHtml = await this.engine.render(rawContent, data, this.assetMap, this.basePath)
 
             const targetPath = path.join(this.outputDir, 'index.html')
             await atomicWriteFile(targetPath, compiledHtml)
@@ -243,7 +263,7 @@ export class SiteBuilder {
                 const paramValue = item.params ? (item.params[paramKey] || item.params.id || item.params.slug) : undefined
                 if (!paramValue) continue
 
-                let compiledHtml = await this.engine.render(rawContent, item.data || {}, this.assetMap)
+                let compiledHtml = await this.engine.render(rawContent, item.data || {}, this.assetMap, this.basePath)
 
                 const targetPath = path.join(this.outputDir, baseDir, String(paramValue), 'index.html')
                 const resolvedTarget = path.resolve(targetPath)
@@ -261,7 +281,7 @@ export class SiteBuilder {
             const data = mod.data ? await mod.data() : {}
             try {
                 const rawContent = await fs.readFile(pagePath, 'utf-8')
-                let compiledHtml = await this.engine.render(rawContent, data, this.assetMap)
+                let compiledHtml = await this.engine.render(rawContent, data, this.assetMap, this.basePath)
 
                 const targetPath = path.join(this.outputDir, routeName, 'index.html')
                 await atomicWriteFile(targetPath, compiledHtml)
@@ -354,7 +374,7 @@ export class SiteBuilder {
                         // generatePaths()'s allowlist) - this isn't a real page, don't render one.
                         if (!itemData) continue
 
-                        let compiledHtml = await this.engine.render(rawContent, itemData, this.assetMap)
+                        let compiledHtml = await this.engine.render(rawContent, itemData, this.assetMap, this.basePath)
 
                         const targetPath = path.join(this.outputDir, baseDir.replace(/^\//, ''), String(reqParamValue), 'index.html')
                         await atomicWriteFile(targetPath, compiledHtml)
@@ -373,7 +393,7 @@ export class SiteBuilder {
             if (resolvedPagePath === absSrcDir || resolvedPagePath.startsWith(absSrcDir + path.sep)) {
                 try {
                     const rawContent = await fs.readFile(resolvedPagePath, 'utf-8')
-                    let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
+                    let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap, this.basePath)
 
                     const targetPath = cleanRouteName === '404'
                         ? path.join(this.outputDir, '404.html')
@@ -525,7 +545,7 @@ export class SiteBuilder {
             }
 
             const rawContent = await fs.readFile(pagePath, 'utf-8')
-            let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap)
+            let compiledHtml = await this.engine.render(rawContent, {}, this.assetMap, this.basePath)
 
             await atomicWriteFile(targetPath, compiledHtml)
             totalPages++

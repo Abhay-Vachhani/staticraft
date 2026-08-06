@@ -37,15 +37,47 @@ function escapeRegex(str) {
 }
 
 /**
- * Rewrites asset URLs in HTML using an asset map
+ * Rewrites asset URLs in HTML using an asset map, prefixing with basePath if specified
  */
-export function rewriteAssetUrls(html, assetMap) {
+export function rewriteAssetUrls(html, assetMap, basePath = '') {
     let updatedHtml = html
+    const cleanBasePath = basePath ? basePath.replace(/\/+$/, '') : ''
     const sortedEntries = Object.entries(assetMap).sort((a, b) => b[0].length - a[0].length)
     for (const [originalName, hashedName] of sortedEntries) {
         const escapedName = escapeRegex(originalName)
         const regex = new RegExp(`(["'/])(${escapedName})(["'?#])`, 'g')
-        updatedHtml = updatedHtml.replace(regex, `$1${hashedName}$3`)
+        updatedHtml = updatedHtml.replace(regex, (match, p1, p2, p3) => {
+            const target = cleanBasePath ? `${cleanBasePath}/${hashedName.replace(/^\//, '')}` : hashedName
+            if (p1 === '/') {
+                return `/${target.replace(/^\//, '')}${p3}`
+            }
+            return `${p1}${target}${p3}`
+        })
     }
     return updatedHtml
 }
+
+/**
+ * Prefixes root-relative URLs in href and src attributes with basePath (if not already prefixed).
+ */
+export function rewriteBasePaths(html, basePath = '') {
+    if (!basePath) return html
+    const cleanBasePath = basePath.replace(/\/+$/, '')
+    if (!cleanBasePath) return html
+
+    const regex = /(href|src)=(["'])\/([^"']*)\2/g
+    return html.replace(regex, (match, attr, quote, rest) => {
+        const fullPath = '/' + rest
+        if (
+            fullPath === cleanBasePath ||
+            fullPath.startsWith(cleanBasePath + '/') ||
+            fullPath.startsWith(cleanBasePath + '?') ||
+            fullPath.startsWith(cleanBasePath + '#') ||
+            fullPath.startsWith('//')
+        ) {
+            return match
+        }
+        return `${attr}=${quote}${cleanBasePath}${fullPath}${quote}`
+    })
+}
+
