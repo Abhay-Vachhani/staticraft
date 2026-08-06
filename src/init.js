@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
+import { VERSION } from './cli.js'
 
 export async function runInit(options = {}) {
     let targetName = options.targetDir
@@ -56,7 +57,7 @@ export async function runInit(options = {}) {
             start: 'staticraft start'
         },
         devDependencies: {
-            staticraft: '^0.1.2'
+            staticraft: `^${VERSION}`
         }
     }
     await fs.writeFile(path.join(targetDir, 'package.json'), JSON.stringify(packageJson, null, 2) + '\n', 'utf-8')
@@ -95,7 +96,7 @@ export default {
                 <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h8L7 22l2-10H1z"/></svg>
                 <span class="brand-name">Staticraft</span>
             </div>
-            <span class="badge">v0.1.2</span>
+            <span class="badge">v${VERSION}</span>
         </header>
 
         <main class="hero">

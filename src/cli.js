@@ -1,12 +1,23 @@
-import fs from 'node:fs/promises'
+import fs from 'node:fs'
 import { parseArgs } from 'node:util'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { SiteBuilder } from './worker/builder.js'
 import { DevServer } from './dev/server.js'
 import { ScheduleManager } from './worker/schedule.js'
 import { runInit } from './init.js'
 
-export const VERSION = '0.1.2'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const pkgPath = path.resolve(__dirname, '../package.json')
+
+let pkgVersion = ''
+try {
+    const pkgJsonStr = fs.readFileSync(pkgPath, 'utf-8')
+    const pkg = JSON.parse(pkgJsonStr)
+    pkgVersion = pkg.version || ''
+} catch (_) {}
+
+export const VERSION = pkgVersion
 
 export function showBanner() {
     console.log(`
