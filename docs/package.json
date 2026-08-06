@@ -1,0 +1,19 @@
+{
+    "name": "docs",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "staticraft dev",
+        "build": "staticraft build",
+        "start": "staticraft start",
+        "watch": "tailwindcss -i ./app/input.css -o ./app/styles.css --watch"
+    },
+    "devDependencies": {
+        "staticraft": "^0.1.3"
+    },
+    "dependencies": {
+        "@tailwindcss/cli": "^4.3.3",
+        "tailwindcss": "^4.3.3"
+    }
+}

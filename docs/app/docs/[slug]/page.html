@@ -1,0 +1,91 @@
+{{ layout "layouts/base.html" }}
+
+<article class="py-12 sm:py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Breadcrumb -->
+        <nav class="flex items-center space-x-2 text-xs font-mono text-slate-500 mb-8">
+            <a href="/docs" class="hover:text-indigo-600 transition-colors">Docs</a>
+            <span>/</span>
+            <span class="text-indigo-600 font-semibold">{{ badge }}</span>
+        </nav>
+
+        <!-- Header -->
+        <div class="border-b border-slate-200 pb-10 mb-10">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {{ badge }}
+                </span>
+                <span class="text-xs font-mono text-slate-500">{{ readTime }}</span>
+            </div>
+            
+            <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+                {{ title }}
+            </h1>
+            
+            <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
+                {{ description }}
+            </p>
+        </div>
+
+        <!-- Dynamic Sections -->
+        <div class="space-y-10 mb-16">
+            {{#each sections}}
+            <section class="space-y-3">
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                    {{ heading }}
+                </h2>
+                
+                <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
+                    {{ content }}
+                </p>
+
+                {{#if code}}
+                <div class="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden my-4 shadow-sm">
+                    <div class="px-4 py-2 bg-slate-950 border-b border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                        <span>Code Reference</span>
+                        <span class="text-indigo-400 font-semibold">Staticraft</span>
+                    </div>
+                    <pre class="p-4 font-mono text-xs text-slate-200 bg-slate-900 overflow-x-auto leading-relaxed"><code>{{ code }}</code></pre>
+                </div>
+                {{/if}}
+            </section>
+            {{/each}}
+        </div>
+
+        <!-- Article Footer Navigation -->
+        <div class="pt-8 border-t border-slate-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {{#if prev}}
+                <a href="/docs/{{ prev.slug }}" class="light-card p-4 rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xs transition-all text-left group flex flex-col justify-between">
+                    <div class="text-[11px] font-mono font-semibold text-slate-500 mb-1.5 flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+                        <span class="font-bold">←</span> Previous Guide
+                    </div>
+                    <div class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {{ prev.title }}
+                    </div>
+                </a>
+                {{/if}}
+
+                {{#if next}}
+                <a href="/docs/{{ next.slug }}" class="light-card p-4 rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xs transition-all text-right items-end group flex flex-col justify-between {{#if prev}}{{else}}sm:col-start-2{{/if}}">
+                    <div class="text-[11px] font-mono font-semibold text-slate-500 mb-1.5 flex items-center justify-end gap-1 group-hover:text-indigo-600 transition-colors">
+                        Next Guide <span class="font-bold">→</span>
+                    </div>
+                    <div class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {{ next.title }}
+                    </div>
+                </a>
+                {{/if}}
+            </div>
+
+            <div class="flex items-center justify-start pt-6">
+                <a href="/docs" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300/80 shadow-xs hover:border-slate-400 hover:text-slate-900 transition-all group">
+                    <span class="font-mono text-indigo-600 font-bold group-hover:-translate-x-0.5 transition-transform">‹</span>
+                    <span>All Documentation Guides</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+</article>

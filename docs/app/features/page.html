@@ -1,0 +1,66 @@
+{{ layout "layouts/base.html" }}
+
+<div class="py-12 sm:py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Header -->
+        <div class="max-w-3xl mb-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 font-semibold mb-4">
+                <span>Feature Overview</span>
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+                Comprehensive <span class="indigo-gradient-text">Feature Set</span>
+            </h1>
+            <p class="text-slate-600 text-base leading-relaxed">
+                Everything required for high-performance static websites without complex toolchains, third-party runtime dependencies, or open security attack vectors.
+            </p>
+        </div>
+
+    </div>
+</div>
+
+{{ component "components/features.html" }}
+
+<!-- Feature Highlights Extended Section -->
+<section class="py-16 bg-white border-t border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="max-w-3xl mb-10">
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight mb-3">
+                Built-in Developer Conveniences
+            </h2>
+            <p class="text-slate-600 text-sm">
+                No external setup required. Staticraft works right out of the box.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-indigo-600 mb-2">DEVELOPMENT MODE</div>
+                <h3 class="text-base font-bold text-slate-900 mb-2">Live Reload Dev Server</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Built-in development server on <code class="font-mono text-indigo-700">http://localhost:4455/</code> with file watching and live page reloading.
+                </p>
+            </div>
+
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-purple-600 mb-2">AUTOMATED SEO</div>
+                <h3 class="text-base font-bold text-slate-900 mb-2">Sitemap & Robots</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Automatically generates valid <code class="font-mono text-purple-700">sitemap.xml</code> and <code class="font-mono text-purple-700">robots.txt</code> files based on discovered routes.
+                </p>
+            </div>
+
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-sky-600 mb-2">ERROR HANDLING</div>
+                <h3 class="text-base font-bold text-slate-900 mb-2">Custom 404 Support</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Drop a <code class="font-mono text-sky-700">src/app/404.html</code> file to compile a custom error page served on any missing URL path.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</section>

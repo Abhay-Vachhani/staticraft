@@ -191,7 +191,7 @@ export class TemplateEngine {
     }
 
     /**
-     * Evaluate simple conditionals: {{#if var}}...{{/if}}
+     * Evaluate simple conditionals: {{#if var}}...{{else}}...{{/if}}
      */
     processConditionals(content, data) {
         let result = content
@@ -199,7 +199,11 @@ export class TemplateEngine {
         let block
         while ((block = findBlockMatch(result, openRegex, '{{/if}}')) !== null) {
             const value = resolveProperty(data, block.param)
-            const replacement = value ? this.processConditionals(block.innerContent, data) : ''
+            const parts = block.innerContent.split('{{else}}')
+            const truthyContent = parts[0]
+            const falsyContent = parts.length > 1 ? parts.slice(1).join('{{else}}') : ''
+            const chosen = value ? truthyContent : falsyContent
+            const replacement = this.processConditionals(chosen, data)
             result = result.slice(0, block.startIndex) + replacement + result.slice(block.endIndex)
         }
         return result

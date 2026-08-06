@@ -1,0 +1,124 @@
+<section class="py-16 sm:py-20 border-t border-slate-200 bg-white relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-3xl mx-auto mb-12">
+            <h2 class="text-xs font-mono font-semibold text-indigo-600 tracking-wider uppercase mb-2">Developer Workflow</h2>
+            <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+                Clean, Expressive Code Structures
+            </h3>
+            <p class="text-slate-600 text-sm sm:text-base">
+                File-based routing with colocated route controllers and HTML templates.
+            </p>
+        </div>
+
+        <div class="max-w-4xl mx-auto rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+            
+            <!-- Code Tab Bar -->
+            <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between overflow-x-auto">
+                <div class="flex items-center space-x-2">
+                    <button id="tab-btn-server" onclick="switchCodeTab('server')" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-indigo-600 text-white shadow-xs cursor-pointer">
+                        src/app/server.js
+                    </button>
+                    <button id="tab-btn-template" onclick="switchCodeTab('template')" class="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors cursor-pointer">
+                        src/app/page.html
+                    </button>
+                    <button id="tab-btn-config" onclick="switchCodeTab('config')" class="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors cursor-pointer">
+                        staticraft.config.js
+                    </button>
+                </div>
+                <div class="text-[11px] font-mono text-slate-400">ECMAScript Module</div>
+            </div>
+
+            <!-- Tab 1: server.js -->
+            <div id="tab-code-server" class="p-6 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto">
+                <pre class="space-y-1">
+<span class="token-keyword">export default</span> {
+    <span class="token-comment">// Background revalidation interval (refresh HTML every 10 minutes)</span>
+    <span class="token-attr">revalidate</span>: <span class="token-function">600</span>,
+
+    <span class="token-comment">// Data hook called by Staticraft rendering engine</span>
+    <span class="token-attr">data</span>: <span class="token-keyword">async</span> () => {
+        <span class="token-keyword">const</span> res = <span class="token-keyword">await</span> fetch(<span class="token-string">'https://api.github.com/repos/Abhay-Vachhani/staticraft'</span>);
+        <span class="token-keyword">const</span> repo = <span class="token-keyword">await</span> res.json();
+        
+        <span class="token-keyword">return</span> {
+            <span class="token-attr">title</span>: <span class="token-string">'Staticraft Engine'</span>,
+            <span class="token-attr">stars</span>: repo.stargazers_count || <span class="token-function">120</span>,
+            <span class="token-attr">license</span>: repo.license?.spdx_id || <span class="token-string">'MIT'</span>
+        };
+    }
+};
+                </pre>
+            </div>
+
+            <!-- Tab 2: page.html -->
+            <div id="tab-code-template" class="p-6 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto hidden">
+                <pre class="space-y-1">
+<span class="token-comment">&lt;!-- Inherit master layout --&gt;</span>
+<span class="token-tag">{{ layout "layouts/base.html" }}</span>
+
+<span class="token-comment">&lt;!-- Page Content (Injected into {{ slot }} in base layout) --&gt;</span>
+<span class="token-tag">&lt;section</span> <span class="token-attr">class</span>=<span class="token-string">"hero"</span><span class="token-tag">&gt;</span>
+    <span class="token-tag">&lt;h1&gt;</span><span class="token-tag">{{ title }}</span><span class="token-tag">&lt;/h1&gt;</span>
+    <span class="token-tag">&lt;p&gt;</span>GitHub Stars: <span class="token-tag">{{ stars }}</span> | License: <span class="token-tag">{{ license }}</span><span class="token-tag">&lt;/p&gt;</span>
+
+    <span class="token-comment">&lt;!-- Include reusable component --&gt;</span>
+    <span class="token-tag">{{ component "components/features.html" }}</span>
+<span class="token-tag">&lt;/section&gt;</span>
+                </pre>
+            </div>
+
+            <!-- Tab 3: staticraft.config.js -->
+            <div id="tab-code-config" class="p-6 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto hidden">
+                <pre class="space-y-1">
+<span class="token-comment">/**
+ * Staticraft Project Configuration
+ */</span>
+<span class="token-keyword">export default</span> {
+    <span class="token-comment">// Static output destination folder (default: .raft)</span>
+    <span class="token-attr">outputDir</span>: <span class="token-string">'.raft'</span>,
+
+    <span class="token-comment">// Default browser & CDN cache expiry header</span>
+    <span class="token-attr">defaultExpiry</span>: <span class="token-string">'1y'</span>,
+
+    <span class="token-comment">// Base URL for automatic sitemap.xml and robots.txt generation</span>
+    <span class="token-attr">siteUrl</span>: <span class="token-string">'https://abhay-vachhani.github.io/staticraft'</span>
+};
+                </pre>
+            </div>
+
+            <!-- Footer Bar -->
+            <div class="px-6 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span id="tab-desc-server">Colocated data & schedule control per route</span>
+                    <span id="tab-desc-template" class="hidden">Template inheritance & reusable UI components</span>
+                    <span id="tab-desc-config" class="hidden">Project build settings & siteUrl configuration</span>
+                </div>
+                <span class="text-indigo-400">Zero Node.js web server runtime on HTTP requests</span>
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<script>
+    function switchCodeTab(tabId) {
+        const tabs = ['server', 'template', 'config'];
+        tabs.forEach(t => {
+            const btn = document.getElementById('tab-btn-' + t);
+            const code = document.getElementById('tab-code-' + t);
+            const desc = document.getElementById('tab-desc-' + t);
+            if (t === tabId) {
+                if (btn) btn.className = "px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-indigo-600 text-white shadow-xs cursor-pointer";
+                if (code) code.classList.remove('hidden');
+                if (desc) desc.classList.remove('hidden');
+            } else {
+                if (btn) btn.className = "px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors cursor-pointer";
+                if (code) code.classList.add('hidden');
+                if (desc) desc.classList.add('hidden');
+            }
+        });
+    }
+</script>

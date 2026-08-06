@@ -68,6 +68,15 @@ describe('TemplateEngine conditionals', () => {
         assert.equal(await engine.render(tpl, {}), '')
         await fixture.cleanup()
     })
+
+    test('renders {{else}} branch when falsy', async () => {
+        const { engine, fixture } = await makeEngine({})
+        const tpl = '{{#if show}}YES{{else}}NO{{/if}}'
+        assert.equal(await engine.render(tpl, { show: true }), 'YES')
+        assert.equal(await engine.render(tpl, { show: false }), 'NO')
+        assert.equal(await engine.render(tpl, {}), 'NO')
+        await fixture.cleanup()
+    })
 })
 
 describe('TemplateEngine loops', () => {

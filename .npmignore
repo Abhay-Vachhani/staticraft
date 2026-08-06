@@ -1,0 +1,6 @@
+docs/
+test/
+tmp/
+.github/
+.raft/
+staticraft.config.js

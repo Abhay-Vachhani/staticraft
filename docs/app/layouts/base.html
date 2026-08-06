@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{#if title}}{{ title }} | Staticraft{{#else}}Staticraft | Security-First Event-Driven Static Site Engine{{/if}}</title>
+    <meta name="description" content="{{#if description}}{{ description }}{{#else}}Generate privately. Serve statically. Update continuously. Security-first static site generator with zero exposed public app ports and zero npm dependencies.{{/if}}">
+    <meta name="keywords" content="staticraft, ssg, static site generator, security-first, zero-dependency, node.js, static site engine, event-driven static site">
+    <meta name="author" content="Abhay Vachhani">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://abhay-vachhani.github.io/staticraft/">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+
+    <!-- Open Graph / Facebook / LinkedIn Meta Tags -->
+    <meta property="og:site_name" content="Staticraft Documentation">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://abhay-vachhani.github.io/staticraft/">
+    <meta property="og:title" content="{{#if title}}{{ title }}{{#else}}Staticraft | Security-First Event-Driven Static Site Engine{{/if}}">
+    <meta property="og:description" content="{{#if description}}{{ description }}{{#else}}Generate privately. Serve statically. Update continuously. Security-first static site engine with zero exposed public app ports and zero npm dependencies.{{/if}}">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{#if title}}{{ title }}{{#else}}Staticraft | Security-First Event-Driven Static Site Engine{{/if}}">
+    <meta name="twitter:description" content="{{#if description}}{{ description }}{{#else}}Generate privately. Serve statically. Update continuously. Security-first static site engine with zero exposed public app ports.{{/if}}">
+    <meta name="twitter:creator" content="@AbhayVachhani">
+
+    <!-- JSON-LD Structured Data (Schema.org) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Staticraft",
+      "operatingSystem": "Node.js (>=18.0.0)",
+      "applicationCategory": "DeveloperApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Security-first, event-driven static site engine that renders HTML from templates and live data sources in an isolated background process.",
+      "author": {
+        "@type": "Person",
+        "name": "Abhay Vachhani",
+        "url": "https://github.com/Abhay-Vachhani"
+      }
+    }
+    </script>
+
+    <!-- Stylesheet (Asset hashed by Staticraft) -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white relative font-sans">
+    
+    <!-- Subtle Background Pattern -->
+    <div class="fixed inset-0 pointer-events-none z-0 grid-pattern-light opacity-70"></div>
+
+    <!-- Navigation Header -->
+    {{ component "components/navbar.html" }}
+
+    <!-- Main Content Slot -->
+    <main class="flex-grow z-10">
+        {{ slot }}
+    </main>
+
+    <!-- Footer -->
+    {{ component "components/footer.html" }}
+
+    <!-- Global Interactive Script -->
+    <script>
+        function copyToClipboard(text, elementId) {
+            navigator.clipboard.writeText(text).then(() => {
+                const el = document.getElementById(elementId);
+                if (el) {
+                    const original = el.innerText;
+                    el.innerText = 'Copied!';
+                    el.classList.add('text-emerald-600', 'font-bold');
+                    setTimeout(() => {
+                        el.innerText = original;
+                        el.classList.remove('text-emerald-600', 'font-bold');
+                    }, 2000);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+    push:
+        branches: ['master']
+        paths:
+            - 'docs/**'
+            - 'src/**'
+            - 'staticraft'
+            - '.github/workflows/deploy-docs.yml'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+concurrency:
+    group: 'pages'
+    cancel-in-progress: true
+
+jobs:
+    deploy:
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  cache: 'npm'
+
+            - name: Install dependencies
+              run: |
+                  npm ci
+                  cd docs && npm ci
+
+            - name: Compile Tailwind CSS
+              run: |
+                  cd docs && npx @tailwindcss/cli -i ./app/input.css -o ./app/styles.css
+
+            - name: Build Staticraft documentation site
+              run: |
+                  cd docs && node ../staticraft build
+
+            - name: Upload GitHub Pages artifact
+              uses: actions/upload-pages-artifact@v5
+              with:
+                  path: 'docs/.raft'
+
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v5

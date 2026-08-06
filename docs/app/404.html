@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 | Page Not Found - Staticraft</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative">
+    
+    <div class="fixed inset-0 pointer-events-none z-0 grid-pattern-light opacity-70"></div>
+
+    <!-- Header -->
+    <header class="p-6 relative z-10">
+        <a href="/" class="inline-flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-base">
+                ⚡
+            </div>
+            <span class="font-extrabold text-lg text-slate-900">Staticraft</span>
+        </a>
+    </header>
+
+    <!-- 404 Main Box -->
+    <main class="max-w-2xl mx-auto px-4 text-center relative z-10 py-16">
+        <div class="light-card p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-sm space-y-6 bg-white">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 text-2xl font-mono font-bold">
+                404
+            </div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">
+                Route Not Found
+            </h1>
+            <p class="text-slate-600 text-sm leading-relaxed max-w-md mx-auto">
+                The requested page does not exist or has been moved. Staticraft automatically compiles and serves this custom 404 page for missing URL paths.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+                <a href="/" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-semibold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs">
+                    Return to Homepage
+                </a>
+                <a href="/docs" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-semibold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all border border-slate-300">
+                    Browse Documentation
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-6 text-center text-xs font-mono text-slate-500 relative z-10">
+        Staticraft v0.1.3 Engine &bull; Custom 404 Handler
+    </footer>
+
+</body>
+</html>

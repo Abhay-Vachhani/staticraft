@@ -1,0 +1,74 @@
+{{ layout "layouts/base.html" }}
+
+<div class="py-12 sm:py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Header -->
+        <div class="max-w-3xl mb-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 font-semibold mb-4">
+                <span>Architecture Deep Dive</span>
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+                Decoupled <span class="indigo-gradient-text">Generator & Serving Layer</span>
+            </h1>
+            <p class="text-slate-600 text-base leading-relaxed">
+                Staticraft eliminates traditional SSR vulnerabilities by isolating HTML compilation inside a private background daemon and serving immutable static files directly through Nginx or CDNs.
+            </p>
+        </div>
+
+    </div>
+</div>
+
+{{ component "components/architecture.html" }}
+
+<!-- Architectural Principles Extended Section -->
+<section class="py-16 bg-white border-t border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="max-w-3xl mb-12">
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight mb-3">
+                Core Architectural Principles
+            </h2>
+            <p class="text-slate-600 text-sm">
+                Four design guarantees that make Staticraft resilient, fast, and secure.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-indigo-600 mb-2">01. ZERO PUBLIC PORTS</div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Private Generator Isolation</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    In production mode (<code class="font-mono text-indigo-700">staticraft start</code>), the engine opens zero listening HTTP ports. Attackers cannot send malformed requests, SQL injections, or RCE payloads to the application backend because the backend is completely unexposed.
+                </p>
+            </div>
+
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-purple-600 mb-2">02. POSIX RENAME(2)</div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Atomic File Swapping</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Pages are compiled into temporary staging files first. Once rendering completes successfully, Staticraft triggers an atomic <code class="font-mono text-purple-700">rename(2)</code> system call to swap the file into <code class="font-mono">.raft/</code>. Nginx never encounters empty or half-rendered pages.
+                </p>
+            </div>
+
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-sky-600 mb-2">03. SCHEDULE MANAGER</div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Timer-Driven Revalidation</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Routes specify their own background refresh intervals via <code class="font-mono text-sky-700">revalidate: 600</code>. The background <code class="font-mono">ScheduleManager</code> handles background timers seamlessly without needing complex CI/CD webhook triggers.
+                </p>
+            </div>
+
+            <div class="light-card p-6 rounded-2xl">
+                <div class="text-xs font-mono font-bold text-emerald-600 mb-2">04. IMMUTABLE SERVING</div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Sub-Millisecond TTFB</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Nginx, Caddy, or CDNs serve pre-rendered static files directly from RAM or disk cache. Response times are bounded only by network latency (< 2ms TTFB), easily handling millions of requests.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</section>

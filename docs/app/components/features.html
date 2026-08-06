@@ -1,0 +1,115 @@
+<section id="features" class="py-16 sm:py-20 border-t border-slate-200 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-3xl mx-auto mb-14">
+            <h2 class="text-xs font-mono font-semibold text-indigo-600 tracking-wider uppercase mb-2">Core Features</h2>
+            <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+                Built for Security, Speed, and Simplicity
+            </h3>
+            <p class="text-slate-600 text-sm sm:text-base">
+                Everything required for high-performance static websites without complex toolchains or runtime attack vectors.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- Feature Card 1 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Zero Exposed Ports</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        In production mode (<code class="font-mono text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded">staticraft start</code>), the generator opens zero public HTTP listening ports. Web traffic hits only static files.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-indigo-700">Security-First Architecture</div>
+            </div>
+
+            <!-- Feature Card 2 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Atomic Swapping</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        HTML pages are written to staging files before an atomic POSIX <code class="font-mono text-purple-700 bg-purple-50 px-1 py-0.5 rounded">rename(2)</code> swap, eliminating half-rendered pages or torn reads.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-purple-700">Zero-Downtime Updates</div>
+            </div>
+
+            <!-- Feature Card 3 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Timer Revalidation</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        Define <code class="font-mono text-sky-700 bg-sky-50 px-1 py-0.5 rounded">revalidate: 600</code> to automatically refresh HTML every 10 minutes in the background without manual CI redeploys.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-sky-700">ScheduleManager Engine</div>
+            </div>
+
+            <!-- Feature Card 4 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Zero Dependencies</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        Zero third-party npm runtime dependencies. Built entirely with native Node.js standard modules for minimal supply-chain risk.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-emerald-700">Native Node 18+</div>
+            </div>
+
+            <!-- Feature Card 5 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Asset Fingerprinting</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        Staticraft automatically hashes static CSS and JS assets (e.g. <code class="font-mono text-amber-700 bg-amber-50 px-1 py-0.5 rounded">styles.07eef7b1.css</code>) and rewrites template references.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-amber-700">Cache Busting</div>
+            </div>
+
+            <!-- Feature Card 6 -->
+            <div class="light-card p-6 rounded-2xl light-card-hover flex flex-col justify-between">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-900 mb-2">Auto Sitemap & Robots</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                        Generates <code class="font-mono text-rose-700 bg-rose-50 px-1 py-0.5 rounded">sitemap.xml</code> and <code class="font-mono text-rose-700 bg-rose-50 px-1 py-0.5 rounded">robots.txt</code> out of the box during build and dev mode automatically.
+                    </p>
+                </div>
+                <div class="text-[11px] font-mono font-semibold text-rose-700">Automated SEO</div>
+            </div>
+
+        </div>
+
+    </div>
+</section>
