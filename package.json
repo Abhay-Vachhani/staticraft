@@ -3,7 +3,9 @@
     "version": "0.1.2",
     "description": "Generate privately. Serve statically. Update continuously.",
     "type": "module",
-    "bin": "./staticraft",
+    "bin": {
+        "staticraft": "./staticraft"
+    },
     "main": "src/cli.js",
     "files": [
         "staticraft",
