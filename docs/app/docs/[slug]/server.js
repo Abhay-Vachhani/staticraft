@@ -82,22 +82,22 @@ export default {
                     {
                         heading: '1. Layout Inheritance & {{ slot }} Injection',
                         content: 'Define a shared master layout in `src/app/layouts/base.html` containing common HTML head elements, headers, and footers. Child pages reference the layout using `{{ layout "layouts/base.html" }}`. Page contents are automatically injected into `{{ slot }}`.',
-                        code: '<!-- src/app/layouts/base.html -->\n<!DOCTYPE html>\n<html>\n<head><title>{{ title }}</title></head>\n<body>\n    <header>Site Header</header>\n    <main>{{ slot }}</main>\n</body>\n</html>\n\n<!-- src/app/page.html -->\n{{ layout "layouts/base.html" }}\n<h1>Welcome to {{ title }}</h1>'
+                        code: '<!-- src/app/layouts/base.html -->\n<!DOCTYPE html>\n<html>\n<head><title>&#123;&#123; title &#125;&#125;</title></head>\n<body>\n    <header>Site Header</header>\n    <main>&#123;&#123; slot &#125;&#125;</main>\n</body>\n</html>\n\n<!-- src/app/page.html -->\n&#123;&#123; layout "layouts/base.html" &#125;&#125;\n<h1>Welcome to &#123;&#123; title &#125;&#125;</h1>'
                     },
                     {
                         heading: '2. Reusable Components & Partials',
                         content: 'Break modular UI components into clean template files and include them using `{{ component "components/navbar.html" }}`.',
-                        code: '{{ component "components/navbar.html" }}\n<section>Content Here</section>\n{{ component "components/footer.html" }}'
+                        code: '&#123;&#123; component "components/navbar.html" &#125;&#125;\n<section>Content Here</section>\n&#123;&#123; component "components/footer.html" &#125;&#125;'
                     },
                     {
                         heading: '3. Conditionals ({{#if}})',
                         content: 'Evaluate boolean or object presence conditionally with `{{#if variable}}...{{/if}}`.',
-                        code: '{{#if isFeatured}}\n    <span class="badge">Featured Post</span>\n{{/if}}'
+                        code: '&#123;&#123;#if isFeatured&#125;&#125;\n    <span class="badge">Featured Post</span>\n&#123;&#123;/if&#125;&#125;'
                     },
                     {
                         heading: '4. Array Loops ({{#each}})',
                         content: 'Iterate over lists using `{{#each items}}...{{/each}}`. Object properties inside the array are exposed directly in scope.',
-                        code: '<ul>\n{{#each features}}\n    <li>\n        <strong>{{ title }}</strong> - {{ description }}\n    </li>\n{{/each}}\n</ul>'
+                        code: '<ul>\n&#123;&#123;#each features&#125;&#125;\n    <li>\n        <strong>&#123;&#123; title &#125;&#125;</strong> - &#123;&#123; description &#125;&#125;\n    </li>\n&#123;&#123;/each&#125;&#125;\n</ul>'
                     },
                     {
                         heading: '5. Variable Escaping & Asset Fingerprinting',

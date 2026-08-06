@@ -55,15 +55,15 @@
             <div id="tab-code-template" class="p-6 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto hidden">
                 <pre class="space-y-1">
 <span class="token-comment">&lt;!-- Inherit master layout --&gt;</span>
-<span class="token-tag">{{ layout "layouts/base.html" }}</span>
+<span class="token-tag">&#123;&#123; layout "layouts/base.html" &#125;&#125;</span>
 
-<span class="token-comment">&lt;!-- Page Content (Injected into {{ slot }} in base layout) --&gt;</span>
+<span class="token-comment">&lt;!-- Page Content (Injected into &#123;&#123; slot &#125;&#125; in base layout) --&gt;</span>
 <span class="token-tag">&lt;section</span> <span class="token-attr">class</span>=<span class="token-string">"hero"</span><span class="token-tag">&gt;</span>
-    <span class="token-tag">&lt;h1&gt;</span><span class="token-tag">{{ title }}</span><span class="token-tag">&lt;/h1&gt;</span>
-    <span class="token-tag">&lt;p&gt;</span>GitHub Stars: <span class="token-tag">{{ stars }}</span> | License: <span class="token-tag">{{ license }}</span><span class="token-tag">&lt;/p&gt;</span>
+    <span class="token-tag">&lt;h1&gt;</span><span class="token-tag">&#123;&#123; title &#125;&#125;</span><span class="token-tag">&lt;/h1&gt;</span>
+    <span class="token-tag">&lt;p&gt;</span>GitHub Stars: <span class="token-tag">&#123;&#123; stars &#125;&#125;</span> | License: <span class="token-tag">&#123;&#123; license &#125;&#125;</span><span class="token-tag">&lt;/p&gt;</span>
 
     <span class="token-comment">&lt;!-- Include reusable component --&gt;</span>
-    <span class="token-tag">{{ component "components/features.html" }}</span>
+    <span class="token-tag">&#123;&#123; component "components/features.html" &#125;&#125;</span>
 <span class="token-tag">&lt;/section&gt;</span>
                 </pre>
             </div>

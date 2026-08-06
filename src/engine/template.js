@@ -199,7 +199,7 @@ export class TemplateEngine {
         let block
         while ((block = findBlockMatch(result, openRegex, '{{/if}}')) !== null) {
             const value = resolveProperty(data, block.param)
-            const parts = block.innerContent.split('{{else}}')
+            const parts = block.innerContent.split(/\{\{#?else\}\}/)
             const truthyContent = parts[0]
             const falsyContent = parts.length > 1 ? parts.slice(1).join('{{else}}') : ''
             const chosen = value ? truthyContent : falsyContent
