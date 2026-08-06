@@ -132,12 +132,54 @@ export class DevServer {
                 path.join(this.staticDir, '404', 'index.html')
             ]
 
-            for (const cand404 of custom404Candidates) {
+            const loadCustom404 = async () => {
+                for (const cand404 of custom404Candidates) {
+                    try {
+                        return await fs.readFile(cand404, 'utf-8')
+                    } catch (_) {}
+                }
+                return null
+            }
+
+            let custom404Content = await loadCustom404()
+
+            // If not compiled into .raft/ yet, attempt to render 404 page on demand
+            if (!custom404Content && this.builder && typeof this.builder.renderOnDemand === 'function') {
                 try {
-                    const content404 = await fs.readFile(cand404, 'utf-8')
-                    res.end(content404)
-                    return logRequest(404)
-                } catch (_) {}
+                    await this.builder.renderOnDemand('/404')
+                    custom404Content = await loadCustom404()
+                } catch (err) {
+                    console.error('[Staticraft Dev Server] Error compiling custom 404 page on demand:', err.message)
+                }
+            }
+
+            if (custom404Content) {
+                const liveReloadScript = `
+<!-- Staticraft Dev Stream -->
+<script>
+(function() {
+    if (typeof EventSource !== 'undefined') {
+        var source = new EventSource('/__staticraft');
+        source.addEventListener('reload', function() {
+            console.log('[Staticraft] Live reload triggered.');
+            window.location.reload();
+        });
+        source.onmessage = function(event) {
+            if (event.data === 'reload') {
+                window.location.reload();
+            }
+        };
+    }
+})();
+</script>`
+                let htmlStr = custom404Content
+                if (htmlStr.includes('</body>')) {
+                    htmlStr = htmlStr.replace('</body>', `${liveReloadScript}\n</body>`)
+                } else {
+                    htmlStr += liveReloadScript
+                }
+                res.end(htmlStr)
+                return logRequest(404)
             }
 
             res.end(`<!DOCTYPE html>
@@ -225,7 +267,8 @@ export class DevServer {
                 // Debounce invalidations & live reload trigger
                 if (this.rebuildTimer) clearTimeout(this.rebuildTimer)
                 this.rebuildTimer = setTimeout(async () => {
-                    console.log(`\n[Staticraft Watcher] File changed: src/${filename}`)
+                    const relDir = path.relative(this.rootDir, builder.srcDir)
+                    console.log(`\n[Staticraft Watcher] File changed: ${path.join(relDir, filename)}`)
                     try {
                         if (typeof builder.clearCache === 'function') {
                             await builder.clearCache()

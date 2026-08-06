@@ -36,7 +36,8 @@ export function parseCliArgs(args = process.argv.slice(2)) {
                 host: { type: 'boolean', short: 'H', default: false },
                 help: { type: 'boolean', short: 'h', default: false },
                 yes: { type: 'boolean', short: 'y', default: false },
-                'site-url': { type: 'string', short: 'u', default: '' }
+                'site-url': { type: 'string', short: 'u', default: '' },
+                src: { type: 'boolean', default: undefined }
             },
             allowPositionals: true,
             strict: false
@@ -49,10 +50,11 @@ export function parseCliArgs(args = process.argv.slice(2)) {
             host: Boolean(values.host),
             help: Boolean(values.help),
             yes: Boolean(values.yes),
-            siteUrl: values['site-url'] || ''
+            siteUrl: values['site-url'] || '',
+            useSrc: values.src !== undefined ? Boolean(values.src) : undefined
         }
     } catch (err) {
-        return { command: 'help', targetDir: '', port: 4455, host: false, help: true, yes: false, siteUrl: '' }
+        return { command: 'help', targetDir: '', port: 4455, host: false, help: true, yes: false, siteUrl: '', useSrc: undefined }
     }
 }
 

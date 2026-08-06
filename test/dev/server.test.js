@@ -2,6 +2,7 @@ import { test, describe, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { DevServer } from '../../src/dev/server.js'
+import { SiteBuilder } from '../../src/worker/builder.js'
 import { createFixture } from '../helpers/fixture.js'
 
 function get(port, urlPath) {
@@ -35,6 +36,16 @@ async function startServer(tree) {
     const server = new DevServer({ rootDir: fixture.dir, staticDir: fixture.dir, port })
     await server.start(null) // no builder - serve only what's already on disk
     return { server, fixture, port }
+}
+
+async function startServerWithBuilder(tree) {
+    const fixture = await createFixture(tree)
+    const port = nextPort++
+    const builder = new SiteBuilder({ rootDir: fixture.dir })
+    await builder.loadConfig()
+    const server = new DevServer({ rootDir: fixture.dir, staticDir: builder.outputDir, port })
+    await server.start(builder)
+    return { server, fixture, port, builder }
 }
 
 describe('DevServer', () => {
@@ -124,6 +135,38 @@ describe('DevServer', () => {
         const res = await getHeadersOnly(port, '/__staticraft')
         assert.equal(res.statusCode, 200)
         assert.match(res.headers['content-type'], /text\/event-stream/)
+
+        await server.stop()
+        await fixture.cleanup()
+    })
+
+    test('dev server compiles and serves custom 404 page on demand (flat app/404.html)', async () => {
+        const { server, fixture, port } = await startServerWithBuilder({
+            'staticraft.config.js': 'export default { outputDir: ".raft", srcDir: "app" }\n',
+            'app/page.html': '<html>Home</html>',
+            'app/404.html': '<html><body>My Custom 404 Page</body></html>',
+        })
+
+        const res = await get(port, '/missing-route')
+        assert.equal(res.statusCode, 404)
+        assert.match(res.body, /My Custom 404 Page/)
+        assert.match(res.body, /Staticraft Dev Stream/)
+
+        await server.stop()
+        await fixture.cleanup()
+    })
+
+    test('dev server compiles and serves custom 404 page on demand (folder app/404/page.html)', async () => {
+        const { server, fixture, port } = await startServerWithBuilder({
+            'staticraft.config.js': 'export default { outputDir: ".raft", srcDir: "app" }\n',
+            'app/page.html': '<html>Home</html>',
+            'app/404/page.html': '<html><body>Folder Custom 404 Page</body></html>',
+        })
+
+        const res = await get(port, '/missing-route')
+        assert.equal(res.statusCode, 404)
+        assert.match(res.body, /Folder Custom 404 Page/)
+        assert.match(res.body, /Staticraft Dev Stream/)
 
         await server.stop()
         await fixture.cleanup()

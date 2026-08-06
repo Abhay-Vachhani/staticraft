@@ -6,8 +6,9 @@ import { stdin as input, stdout as output } from 'node:process'
 export async function runInit(options = {}) {
     let targetName = options.targetDir
     let siteUrl = options.siteUrl
+    let useSrc = options.useSrc
 
-    if (!options.yes && (!targetName || !siteUrl)) {
+    if (!options.yes && (!targetName || !siteUrl || useSrc === undefined)) {
         const rl = readline.createInterface({ input, output })
         try {
             if (!targetName) {
@@ -18,12 +19,18 @@ export async function runInit(options = {}) {
                 const answer = await rl.question('Site URL (optional, e.g. https://example.com): ')
                 siteUrl = answer.trim() || 'https://example.com'
             }
+            if (useSrc === undefined) {
+                const answer = await rl.question("Would you like to use 'src/' directory? (y/N): ")
+                const trimmed = answer.trim().toLowerCase()
+                useSrc = trimmed === 'y' || trimmed === 'yes'
+            }
         } finally {
             rl.close()
         }
     } else {
         if (!targetName) targetName = 'my-staticraft-site'
         if (!siteUrl) siteUrl = 'https://example.com'
+        if (useSrc === undefined) useSrc = false
     }
 
     const targetDir = path.resolve(process.cwd(), targetName)
@@ -54,6 +61,7 @@ export async function runInit(options = {}) {
     }
     await fs.writeFile(path.join(targetDir, 'package.json'), JSON.stringify(packageJson, null, 2) + '\n', 'utf-8')
 
+    const srcDirSetting = useSrc ? 'src/app' : 'app'
     const configContent = `/**
  * Staticraft Project Configuration
  */
@@ -61,12 +69,13 @@ export default {
     outputDir: '.raft',
     defaultExpiry: '1y',
     siteUrl: '${siteUrl}',
+    srcDir: '${srcDirSetting}',
 }
 `
     await fs.writeFile(path.join(targetDir, 'staticraft.config.js'), configContent, 'utf-8')
     await fs.writeFile(path.join(targetDir, '.gitignore'), 'node_modules/\n.raft/\n.DS_Store\n', 'utf-8')
 
-    const appDir = path.join(targetDir, 'src', 'app')
+    const appDir = useSrc ? path.join(targetDir, 'src', 'app') : path.join(targetDir, 'app')
     await fs.mkdir(appDir, { recursive: true })
 
     const pageHtml = `<!DOCTYPE html>

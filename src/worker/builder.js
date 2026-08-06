@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { TemplateEngine, escapeHtml } from '../engine/template.js'
@@ -32,11 +33,9 @@ export function formatDuration(seconds) {
 
 export class SiteBuilder {
     constructor(options = {}) {
+        this.options = options
         this.rootDir = options.rootDir || process.cwd()
-        // Site content lives under src/app/ - kept separate from the engine
-        // (src/engine, src/worker, src/dev, src/cli.js) so a route/asset can
-        // never collide with or accidentally expose engine internals.
-        this.srcDir = options.srcDir || path.join(this.rootDir, 'src', 'app')
+        this.srcDir = this.resolveSrcDir(options.srcDir)
         this.outputDir = options.outputDir || path.join(this.rootDir, '.raft')
         this.engine = new TemplateEngine({
             rootDir: this.rootDir,
@@ -46,6 +45,24 @@ export class SiteBuilder {
         this.routes = null
         this.assetMap = {}
         this.inflightPaths = new Map()
+    }
+
+    resolveSrcDir(optionsSrcDir) {
+        if (optionsSrcDir) {
+            return path.resolve(this.rootDir, optionsSrcDir)
+        }
+        if (this.config && this.config.srcDir) {
+            return path.resolve(this.rootDir, this.config.srcDir)
+        }
+        const appDir = path.join(this.rootDir, 'app')
+        const srcAppDir = path.join(this.rootDir, 'src', 'app')
+        if (existsSync(appDir)) {
+            return appDir
+        }
+        if (existsSync(srcAppDir)) {
+            return srcAppDir
+        }
+        return appDir
     }
 
     /**
@@ -78,6 +95,8 @@ export class SiteBuilder {
             this.config = {}
             this.outputDir = path.resolve(this.rootDir, '.raft')
         }
+        this.srcDir = this.resolveSrcDir(this.options?.srcDir)
+        this.engine.templatesDir = this.srcDir
         await this.discoverRoutes()
         await this.processAssets()
         return this.config
