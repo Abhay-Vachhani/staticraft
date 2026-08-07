@@ -35,7 +35,7 @@
     "bugs": {
         "url": "https://github.com/Abhay-Vachhani/staticraft/issues"
     },
-    "homepage": "https://github.com/Abhay-Vachhani/staticraft#readme",
+    "homepage": "https://abhay-vachhani.github.io/staticraft/",
     "engines": {
         "node": ">=18.0.0"
     }
