@@ -46,11 +46,17 @@ export function rewriteAssetUrls(html, assetMap, basePath = '') {
     for (const [originalName, hashedName] of sortedEntries) {
         const escapedName = escapeRegex(originalName)
         const regex = new RegExp(`(["'/])(${escapedName})(["'?#])`, 'g')
-        updatedHtml = updatedHtml.replace(regex, (match, p1, p2, p3) => {
-            const target = cleanBasePath ? `${cleanBasePath}/${hashedName.replace(/^\//, '')}` : hashedName
+        updatedHtml = updatedHtml.replace(regex, (match, p1, p2, p3, offset, fullStr) => {
+            const cleanHashed = hashedName.replace(/^\//, '')
             if (p1 === '/') {
+                const prefix = fullStr.slice(0, offset)
+                if (cleanBasePath && prefix.endsWith(cleanBasePath)) {
+                    return `/${cleanHashed}${p3}`
+                }
+                const target = cleanBasePath ? `${cleanBasePath}/${cleanHashed}` : cleanHashed
                 return `/${target.replace(/^\//, '')}${p3}`
             }
+            const target = cleanBasePath ? `${cleanBasePath}/${cleanHashed}` : cleanHashed
             return `${p1}${target}${p3}`
         })
     }

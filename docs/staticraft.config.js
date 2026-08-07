@@ -6,4 +6,6 @@ export default {
     defaultExpiry: '1y',
     siteUrl: 'https://abhay-vachhani.github.io/staticraft',
     srcDir: 'app',
+    ignoreHash: ['favicon.png', 'og-image.png', 'apple-touch-icon.png'],
 }
+

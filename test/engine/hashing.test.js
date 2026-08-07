@@ -76,6 +76,13 @@ describe('rewriteAssetUrls', () => {
         const out = rewriteAssetUrls(html, assetMap)
         assert.equal(out, '<img src="images/logo.22222222.png">')
     })
+
+    test('rewrites absolute asset URLs containing basePath without duplicating basePath', () => {
+        const html = '<meta property="og:image" content="https://abhay-vachhani.github.io/staticraft/og-image.png">'
+        const assetMap = { 'og-image.png': 'og-image.b8849bf0.png' }
+        const out = rewriteAssetUrls(html, assetMap, '/staticraft')
+        assert.equal(out, '<meta property="og:image" content="https://abhay-vachhani.github.io/staticraft/og-image.b8849bf0.png">')
+    })
 })
 
 describe('rewriteBasePaths', () => {

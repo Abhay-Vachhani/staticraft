@@ -134,6 +134,7 @@ export default {
     defaultExpiry: '1y',
     siteUrl: 'https://example.com', // Optional - enables sitemap.xml generation
     srcDir: 'app',                  // Optional - defaults to app/ or src/app/
+    ignoreHash: ['favicon.png', 'og-image.png'], // Optional - skip asset hashing for specific files/patterns
 }
 ```
 
@@ -143,6 +144,7 @@ export default {
 | `defaultExpiry` | Default CDN cache expiry. |
 | `siteUrl` | Absolute origin used to build `sitemap.xml`. Omit to skip sitemap generation entirely. |
 | `srcDir` | Application source directory (default auto-detects `app/` or `src/app/`). |
+| `ignoreHash` | Array of asset filenames, relative paths, or wildcard patterns to skip hashing for. |
 
 ## 🗺️ Routing - file-based, colocated `server.js`
 

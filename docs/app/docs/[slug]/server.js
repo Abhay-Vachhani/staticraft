@@ -101,7 +101,7 @@ export default {
                     },
                     {
                         heading: '5. Variable Escaping & Asset Fingerprinting',
-                        content: 'By default, `{{ variable }}` applies contextual XSS HTML escaping. Use `{{{ rawHtml }}}` for unescaped HTML interpolation.\n\nAll non-HTML static assets (CSS, JS, images) are automatically hashed (e.g., `styles.07eef7b1.css`) and rewritten across templates.',
+                        content: 'By default, `{{ variable }}` applies contextual XSS HTML escaping. Use `{{{ rawHtml }}}` for unescaped HTML interpolation.\n\nAll non-HTML static assets (CSS, JS, images) are automatically hashed (e.g., `styles.07eef7b1.css`) and rewritten across templates. To keep specific assets unhashed (such as favicons or Open Graph social images), specify `ignoreHash: ["favicon.png", "og-image.png"]` in `staticraft.config.js`.',
                         code: '<link rel="stylesheet" href="/styles.css">\n<!-- Transformed automatically into: -->\n<link rel="stylesheet" href="/styles.07eef7b1.css">'
                     }
                 ]

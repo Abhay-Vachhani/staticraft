@@ -10,7 +10,7 @@
         "watch": "tailwindcss -i ./app/input.css -o ./app/styles.css --watch"
     },
     "devDependencies": {
-        "staticraft": "^0.1.6"
+        "staticraft": "^0.1.7"
     },
     "dependencies": {
         "@tailwindcss/cli": "^4.3.3",

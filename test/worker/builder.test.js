@@ -317,6 +317,27 @@ describe('SiteBuilder.processAssets', () => {
 
         await fixture.cleanup()
     })
+
+    test('skips asset hashing for assets listed in ignoreHash config', async () => {
+        const fixture = await createFixture({
+            'staticraft.config.js': `export default { outputDir: '.raft', ignoreHash: ['favicon.png', 'og-image.png'] }\n`,
+            'src/app/favicon.png': 'icon-content',
+            'src/app/og-image.png': 'og-content',
+            'src/app/styles.css': 'body{color:blue}',
+        })
+        const builder = new SiteBuilder({ rootDir: fixture.dir })
+        await builder.loadConfig()
+        await builder.processAssets()
+
+        assert.equal(builder.assetMap['favicon.png'], 'favicon.png')
+        assert.equal(builder.assetMap['og-image.png'], 'og-image.png')
+        assert.match(builder.assetMap['styles.css'], /^styles\.[0-9a-f]{8}\.css$/)
+
+        const faviconExists = await fs.readFile(path.join(builder.outputDir, 'favicon.png'), 'utf-8')
+        assert.equal(faviconExists, 'icon-content')
+
+        await fixture.cleanup()
+    })
 })
 
 describe('SiteBuilder.build - flat file shadowed by folder route', () => {

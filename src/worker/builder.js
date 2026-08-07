@@ -31,6 +31,25 @@ export function formatDuration(seconds) {
     return `${seconds} secs`
 }
 
+function matchesPattern(str, pattern) {
+    if (!pattern) return false
+    const cleanPattern = pattern.startsWith('/') ? pattern.slice(1) : pattern
+    if (cleanPattern === str) return true
+    const regexStr = '^' + cleanPattern.replace(/[.*+?^${}()|[\]\\]/g, (m) => (m === '*' ? '.*' : m === '?' ? '.' : '\\' + m)) + '$'
+    return new RegExp(regexStr).test(str)
+}
+
+function shouldIgnoreHash(assetPath, relativePath, ignoreHash) {
+    if (!ignoreHash) return false
+    const list = Array.isArray(ignoreHash) ? ignoreHash : [ignoreHash]
+    const baseName = path.basename(assetPath)
+    return list.some((p) => {
+        if (typeof p !== 'string') return false
+        const trimmed = p.trim()
+        return matchesPattern(baseName, trimmed) || matchesPattern(relativePath, trimmed)
+    })
+}
+
 export class SiteBuilder {
     constructor(options = {}) {
         this.options = options
@@ -193,27 +212,43 @@ export class SiteBuilder {
 
         this.assetMap = {}
         const basenameOwners = new Map() // basename -> owning relativePath, or null once ambiguous
+        const ignoreHashConfig = this.config?.ignoreHash
         for (const assetPath of assetFiles) {
             const relativePath = path.relative(this.srcDir, assetPath)
-            const hashedAsset = await generateHashedAsset(assetPath)
-            const dirName = path.dirname(relativePath)
-            const hashedRelPath = dirName === '.'
-                ? hashedAsset.hashedFileName
-                : path.join(dirName, hashedAsset.hashedFileName)
+            const isIgnored = shouldIgnoreHash(assetPath, relativePath, ignoreHashConfig)
 
-            const hashedTargetPath = path.join(
-                this.outputDir,
-                dirName,
-                hashedAsset.hashedFileName
-            )
+            let finalRelPath
+            let finalFileName
+            let content
 
-            await atomicWriteBuffer(hashedTargetPath, hashedAsset.content)
+            if (isIgnored) {
+                content = await fs.readFile(assetPath)
+                finalFileName = path.basename(assetPath)
+                finalRelPath = relativePath
+                const targetPath = path.join(this.outputDir, relativePath)
+                await atomicWriteBuffer(targetPath, content)
+            } else {
+                const hashedAsset = await generateHashedAsset(assetPath)
+                const dirName = path.dirname(relativePath)
+                finalFileName = hashedAsset.hashedFileName
+                finalRelPath = dirName === '.'
+                    ? hashedAsset.hashedFileName
+                    : path.join(dirName, hashedAsset.hashedFileName)
+                content = hashedAsset.content
+
+                const hashedTargetPath = path.join(
+                    this.outputDir,
+                    dirName,
+                    hashedAsset.hashedFileName
+                )
+                await atomicWriteBuffer(hashedTargetPath, content)
+            }
 
             const baseName = path.basename(assetPath)
             const owner = basenameOwners.get(baseName)
             if (owner === undefined) {
                 basenameOwners.set(baseName, relativePath)
-                this.assetMap[baseName] = hashedAsset.hashedFileName
+                this.assetMap[baseName] = finalFileName
             } else if (owner !== null && owner !== relativePath) {
                 // Same filename exists in multiple directories: the bare-name
                 // mapping is ambiguous, so drop it. Path-qualified references
@@ -222,7 +257,7 @@ export class SiteBuilder {
                 delete this.assetMap[baseName]
                 basenameOwners.set(baseName, null)
             }
-            this.assetMap[relativePath] = hashedRelPath
+            this.assetMap[relativePath] = finalRelPath
         }
     }
 
