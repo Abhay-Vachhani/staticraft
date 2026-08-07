@@ -56,7 +56,7 @@ export class SiteBuilder {
             if (!bp.startsWith('/')) bp = '/' + bp
             return bp.replace(/\/+$/, '')
         }
-        if (!this.isDev && config?.siteUrl) {
+        if (config?.siteUrl) {
             try {
                 const u = new URL(config.siteUrl)
                 const pathname = u.pathname.replace(/\/+$/, '')

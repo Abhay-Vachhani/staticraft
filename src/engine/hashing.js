@@ -65,7 +65,7 @@ export function rewriteBasePaths(html, basePath = '') {
     const cleanBasePath = basePath.replace(/\/+$/, '')
     if (!cleanBasePath) return html
 
-    const regex = /(href|src)=(["'])\/([^"']*)\2/g
+    const regex = /(href|src|content)=(["'])\/([^"']*)\2/g
     return html.replace(regex, (match, attr, quote, rest) => {
         const fullPath = '/' + rest
         if (

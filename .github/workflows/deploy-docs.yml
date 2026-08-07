@@ -3,11 +3,6 @@ name: Deploy Documentation to GitHub Pages
 on:
     push:
         branches: ['master']
-        paths:
-            - 'docs/**'
-            - 'src/**'
-            - 'staticraft'
-            - '.github/workflows/deploy-docs.yml'
     workflow_dispatch:
 
 permissions:

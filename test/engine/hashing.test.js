@@ -91,6 +91,12 @@ describe('rewriteBasePaths', () => {
         assert.equal(out, '<a href="/staticraft/docs">Docs</a>')
     })
 
+    test('prefixes root-relative content attributes (e.g. meta tags) with basePath', () => {
+        const html = '<meta property="og:image" content="/og-image.png">'
+        const out = rewriteBasePaths(html, '/staticraft')
+        assert.equal(out, '<meta property="og:image" content="/staticraft/og-image.png">')
+    })
+
     test('leaves absolute, relative, or hash URLs untouched', () => {
         const html = '<a href="https://github.com">GH</a><a href="#section">Sec</a>'
         const out = rewriteBasePaths(html, '/staticraft')
